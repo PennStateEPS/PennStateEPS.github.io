@@ -1,6 +1,6 @@
 {
   "name": "ieee-eps-penn-state-website",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,9 +9,9 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@builder.io/sdk-react": "^5.4.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "@storyblok/react": "^7.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",

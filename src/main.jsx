@@ -1,11 +1,22 @@
 import React, { useEffect, useMemo, useState, createContext, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Content, fetchOneEntry, isPreviewing } from '@builder.io/sdk-react';
+import { storyblokInit, apiPlugin, useStoryblok, storyblokEditable } from '@storyblok/react';
 import { organization as org, leadership, verifiedHighlights, confirmedPartners, faqs, links } from './content';
 import { loadCalendarEvents, connectedCalendar, calendarPublicUrl, eventStart, eventEnd, eventDateKey, nyDateKey, dateForKey, prettyDate, prettyTime, displayEventDate, shiftDateKey, mondayKey, initialSemester, semesterBounds, moveSemester } from './calendar';
 import './styles.css';
 
-const builderKey = import.meta.env.VITE_BUILDER_API_KEY || '';
+// This is Storyblok's PUBLIC read-only Delivery API token (never an admin or preview token).
+// Until it is configured and the Home story is published, the existing homepage remains intact.
+const storyblokToken = (import.meta.env.VITE_STORYBLOK_PUBLIC_TOKEN || '').trim();
+const storyblokRegion = (import.meta.env.VITE_STORYBLOK_REGION || 'eu').trim().toLowerCase();
+if (storyblokToken) {
+  storyblokInit({
+    accessToken: storyblokToken,
+    use: [apiPlugin],
+    apiOptions: { region: storyblokRegion },
+  });
+}
+
 const SiteContext = createContext({ openForm:()=>{}, openEvent:()=>{} });
 const useSite = () => useContext(SiteContext);
 
@@ -34,7 +45,79 @@ function Icon({name,size=18,strokeWidth=1.8,...props}){
 function Brand({compact=false}){return <a className="brand" href="#home" aria-label="IEEE EPS Penn State, homepage"><span className="brand-emblem"><span className="brand-circuit"/></span><span className="brand-copy"><strong>IEEE <b>EPS</b> <span>PENN STATE</span></strong>{!compact&&<small>STUDENT CHAPTER</small>}</span></a>}
 function Header(){const [opened,setOpened]=useState(false);const {openForm}=useSite();return <><div className="topline"><div className="container topline-inner"><span><span className="top-dot"/> IEEE Electronics Packaging Society · Penn State</span><span>Established 2026 <span className="topline-arrow">↗</span></span></div></div><header className="site-header"><div className="container header-inner"><Brand/><nav className={'nav '+(opened?'nav-open':'')} aria-label="Main navigation">{links.map(x=><a key={x.id} href={'#'+x.id} onClick={()=>setOpened(false)}>{x.label}</a>)}<button className="button button-small nav-mobile-join" onClick={()=>{setOpened(false);openForm('join')}}>Join the chapter <Icon name="arrow" size={16}/></button></nav><div className="header-end"><button className="button button-small nav-desktop-join" onClick={()=>openForm('join')}>Join the chapter <Icon name="arrow" size={16}/></button><button className="menu-toggle" aria-label={opened?'Close menu':'Open menu'} aria-expanded={opened} onClick={()=>setOpened(v=>!v)}><Icon name={opened?'close':'menu'} size={23}/></button></div></div></header></>}
 function CircuitArt(){return <div className="art-outer" aria-label="Abstract semiconductor packaging and photonic interconnect illustration" role="img"><div className="art-orbit orbit-1"/><div className="art-orbit orbit-2"/><div className="art-panel"><div className="art-panel-top"><span>ADVANCED PACKAGING</span><span>PSU / EPS</span></div><div className="art-grid"><div className="trace trace-1"/><div className="trace trace-2"/><div className="trace trace-3"/><div className="trace trace-4"/><div className="trace trace-5"/><div className="chip-assembly"><div className="chip chip-a"><span>PHOTONICS</span></div><div className="chip chip-b"><span>CHIPLETS</span></div><div className="chip chip-c"><span>INTEGRATION</span></div><div className="chip-core"><div className="core-lines"/><span>EPS</span></div></div><div className="grid-point p1"/><div className="grid-point p2"/><div className="grid-point p3"/><div className="grid-point p4"/></div><div className="art-panel-foot"><span>INTERCONNECT THE FUTURE</span><span className="art-signal">● &nbsp; ACTIVE NETWORK</span></div></div><div className="art-caption top-right"><span>01 / SYSTEMS</span><strong>Packaging innovation</strong></div><div className="art-caption bottom-left"><span>02 / COMMUNITY</span><strong>Ideas into impact</strong></div></div>}
-export function HeroBlock({eyebrow='IEEE ELECTRONICS PACKAGING SOCIETY',headline='Engineering what’s next.',description='Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.'}){const {openForm}=useSite();return <><section className="hero" id="home"><div className="container hero-grid"><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line"/>{eyebrow}</div><h1>{headline.includes('what’s')?<>Engineering<br/><em>what’s next.</em></>:headline}</h1><p>{description}</p><div className="hero-actions"><a className="button" href="#events">Explore events <Icon name="arrow"/></a><button className="button button-outline" onClick={()=>openForm('join')}>Get involved <Icon name="arrow"/></button></div><div className="hero-line"><span className="hero-pill"><span className="live-dot"/>OFFICIALLY EST. 09.28.2026</span><span>University Park, Pennsylvania</span></div></div><CircuitArt/></div></section><NextEventBanner/></>}
+// Only the hero copy and links are controlled by the Storyblok hero block in this first integration.
+// The chapter's other sections remain untouched so a single Storyblok block cannot erase them.
+function safeHeroHref(value, fallback) {
+  if (typeof value !== 'string') return fallback;
+  const url = value.trim();
+  return /^#[A-Za-z][A-Za-z0-9_-]*$/.test(url) || /^https:\/\/[^\s]+$/.test(url) ? url : fallback;
+}
+function HeroAction({ label, href, secondary = false }) {
+  const { openForm } = useSite();
+  const link = safeHeroHref(href, secondary ? '#join' : '#events');
+  const className = secondary ? 'button button-outline' : 'button';
+  if (link === '#join') {
+    return <button className={className} onClick={() => openForm('join')}>
+      {label} <Icon name="arrow" />
+    </button>;
+  }
+  const external = link.startsWith('https://');
+  return <a className={className} href={link} target={external ? '_blank' : undefined}
+    rel={external ? 'noopener noreferrer' : undefined}>{label} <Icon name="arrow" /></a>;
+}
+export function HeroBlock({
+  eyebrow = 'IEEE ELECTRONICS PACKAGING SOCIETY',
+  headline = 'Engineering',
+  highlight = 'what’s next.',
+  description = 'Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.',
+  primary_button_text = 'Explore events',
+  primary_button_url = '#events',
+  secondary_button_text = 'Get involved',
+  secondary_button_url = '#join',
+}) {
+  return <>
+    <section className="hero" id="home">
+      <div className="container hero-grid">
+        <div className="hero-copy">
+          <div className="eyebrow"><span className="eyebrow-line" />{eyebrow}</div>
+          <h1>{headline}{highlight ? <><br /><em>{highlight}</em></> : null}</h1>
+          <p>{description}</p>
+          <div className="hero-actions">
+            <HeroAction label={primary_button_text} href={primary_button_url} />
+            <HeroAction label={secondary_button_text} href={secondary_button_url} secondary />
+          </div>
+          <div className="hero-line"><span className="hero-pill"><span className="live-dot" />OFFICIALLY EST. 09.28.2026</span><span>University Park, Pennsylvania</span></div>
+        </div>
+        <CircuitArt />
+      </div>
+    </section>
+    <NextEventBanner />
+  </>;
+}
+
+// useStoryblok handles the Storyblok Bridge for live visual editing.
+// It fetches only published content because this GitHub Pages frontend is public/static.
+function CmsHero() {
+  const story = useStoryblok('home', { version: 'published' });
+  const blok = story?.content?.body?.find(item => item?.component === 'hero');
+  if (!blok) return <HeroBlock />;
+  return <div className="storyblok__outline" {...storyblokEditable(blok)}>
+    <HeroBlock
+      eyebrow={blok.eyebrow || undefined}
+      headline={blok.headline || undefined}
+      highlight={blok.highlight || undefined}
+      description={blok.description || undefined}
+      primary_button_text={blok.primary_button_text || undefined}
+      primary_button_url={blok.primary_button_url || undefined}
+      secondary_button_text={blok.secondary_button_text || undefined}
+      secondary_button_url={blok.secondary_button_url || undefined}
+    />
+  </div>;
+}
+function HomepageHero() {
+  return storyblokToken ? <CmsHero /> : <HeroBlock />;
+}
+
 function useEvents(){ const [state,setState]=useState({items:[],loading:connectedCalendar,error:''});useEffect(()=>{if(!connectedCalendar)return;let controller=new AbortController();loadCalendarEvents(controller.signal).then(items=>setState({items,loading:false,error:''})).catch(e=>{if(!controller.signal.aborted)setState({items:[],loading:false,error:e.message})});return()=>controller.abort()},[]);return state;}
 const EventContext=createContext({items:[],loading:false,error:''});
 function useEventData(){return useContext(EventContext)}
@@ -80,24 +163,28 @@ function Modal({kind,event,onClose}){const [status,setStatus]=useState({type:'',
  if(event)return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label="Event details" onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button><span className="kicker"><span className="tiny-square"/>CHAPTER EVENT</span><h2>{event.summary||'Chapter event'}</h2><div className="event-detail-row"><Icon name="calendar"/> {displayEventDate(event)}</div>{event.location&&<div className="event-detail-row"><Icon name="pin"/> {event.location}</div>}{event.description&&<p className="modal-description">{event.description.replace(/<[^>]*>/g,'').slice(0,2500)}</p>}<div className="modal-actions">{event.htmlLink&&<a className="button" href={event.htmlLink} target="_blank" rel="noreferrer">Open calendar event <Icon name="external" size={16}/></a>}<button className="button button-soft" onClick={onClose}>Close</button></div></div></div>;
  return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label={names[kind]} onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button><span className="kicker"><span className="tiny-square"/>CONNECT WITH IEEE EPS</span><h2>{names[kind]}</h2><p className="modal-intro">{desc[kind]}</p>{status.type==='success'?<div className="status-message success"><Icon name="checkcircle"/> {status.message}</div>:<form className="chapter-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" autoComplete="name"/></label><label>Email address<input required name="email" type="email" placeholder="name@example.com" autoComplete="email"/></label>{kind==='sponsor'&&<><label>Organization<input required name="organization" placeholder="Company or institution"/></label><label>Inquiry type<select name="inquiry_type" defaultValue="Industry collaboration"><option>Industry collaboration</option><option>Event sponsorship</option><option>Technical talk / speaker</option><option>Workshop</option><option>Other</option></select></label></>}{kind==='join'&&<><label>Academic program<input name="academic_program" placeholder="e.g. PhD Electrical Engineering"/></label><label>Technical interests<input name="interests" placeholder="Packaging, photonics, reliability…"/></label></>}{kind==='contact'&&<label>Subject<input required name="subject" placeholder="How can we help?"/></label>}{kind!=='join'&&<label>Message<textarea required name="message" rows="4" placeholder="Share a few details…"/></label>}<input type="hidden" name="source" value="IEEE EPS Penn State website"/><button className="button submit-button" disabled={submitting} type="submit">{submitting?'Sending…':'Submit inquiry'} <Icon name="arrow" size={16}/></button>{kind==='join'&&<small>Expressing interest does not create or replace official IEEE membership.</small>}{!id&&<p className="form-setup-note">Online submissions are awaiting Formspree connection. For now, contact <a href={`mailto:${org.email}`}>{org.email}</a>.</p>}{status.type==='error'&&<div role="alert" className="status-message error">{status.message}</div>}</form>}</div></div>;
 }
-// Builder's registered blocks can be visually rearranged, duplicated and edited.
-// The application still owns their behavior: calendars fetch dates and forms submit securely.
-const customComponents = [
- {component:HeroBlock,name:'EPS / Hero',inputs:[{name:'eyebrow',type:'string',defaultValue:'IEEE ELECTRONICS PACKAGING SOCIETY'},{name:'headline',type:'string',defaultValue:'Engineering what’s next.'},{name:'description',type:'longText',defaultValue:'Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.'}]},
- {component:AboutBlock,name:'EPS / About',inputs:[{name:'title',type:'string',defaultValue:'Where curiosity meets innovation.'},{name:'description',type:'longText',defaultValue:org.mission}]},
- {component:EventsBlock,name:'EPS / Events & Calendar',inputs:[{name:'title',type:'string',defaultValue:'Something is always in motion.'}]},
- {component:HighlightsBlock,name:'EPS / Highlights',inputs:[{name:'title',type:'string',defaultValue:'Moments that move us forward.'},{name:'items',type:'list',subFields:[{name:'title',type:'string'},{name:'date',type:'string'},{name:'description',type:'longText'},{name:'image',type:'file',allowedFileTypes:['jpeg','jpg','png','webp']},{name:'link',type:'url'}]}]},
- {component:ArchiveBlock,name:'EPS / Event Archive',inputs:[{name:'title',type:'string',defaultValue:'Chapter event archive.'}]},
- {component:PartnersBlock,name:'EPS / Partners',inputs:[{name:'title',type:'string',defaultValue:'Build the future with us.'},{name:'partners',type:'list',subFields:[{name:'name',type:'string'},{name:'logo',type:'file',allowedFileTypes:['jpeg','jpg','png','webp','svg']},{name:'website',type:'url'}]}]},
- {component:TeamBlock,name:'EPS / Leadership',inputs:[{name:'title',type:'string',defaultValue:'The people building our chapter.'},{name:'people',type:'list',defaultValue:leadership,subFields:[{name:'name',type:'string'},{name:'role',type:'string'},{name:'photo',type:'file',allowedFileTypes:['jpeg','jpg','png','webp']},{name:'linkedin',type:'url'}]}]},
- {component:JoinCalloutBlock,name:'EPS / Join Callout',inputs:[{name:'title',type:'string',defaultValue:'Find your place in what’s next.'},{name:'description',type:'longText',defaultValue:'Whether you are curious about advanced packaging or already working at its frontier, there is room for you here.'}]},
- {component:ContactBlock,name:'EPS / Contact & FAQ',inputs:[{name:'title',type:'string',defaultValue:'Let’s connect.'}]},
-];
-function FallbackHome(){return <><HeroBlock/><AboutBlock/><EventsBlock/><HighlightsBlock/><ArchiveBlock/><PartnersBlock/><TeamBlock/><JoinCalloutBlock/><ContactBlock/></>}
-function App(){const [overlay,setOverlay]=useState(null), [entry,setEntry]=useState(undefined),[loadingBuilder,setLoadingBuilder]=useState(Boolean(builderKey));const eventData=useEvents();useEffect(()=>{if(!builderKey)return;let cancelled=false;fetchOneEntry({apiKey:builderKey,model:'page',userAttributes:{urlPath:'/'}}).then(data=>{if(!cancelled)setEntry(data||null)}).catch(()=>{if(!cancelled)setEntry(null)}).finally(()=>{if(!cancelled)setLoadingBuilder(false)});return()=>{cancelled=true}},[]);
- const context=useMemo(()=>({openForm:(kind)=>setOverlay({kind}),openEvent:(event)=>setOverlay({event})}),[]);
- const showBuilder=Boolean(builderKey) && (entry||isPreviewing());
- return <SiteContext.Provider value={context}><EventContext.Provider value={eventData}><a className="skip-link" href="#main">Skip to main content</a><Header/><main id="main">{showBuilder?<Content content={entry||undefined} apiKey={builderKey} model="page" customComponents={customComponents}/>:<FallbackHome/>}</main><Footer/>{overlay&&<Modal key={overlay.kind||overlay.event?.id} kind={overlay.kind} event={overlay.event} onClose={()=>setOverlay(null)}/>}</EventContext.Provider></SiteContext.Provider>;
+// The rest of the site remains the original working design, independently of Storyblok.
+function FallbackHome() {
+  return <><HomepageHero /><AboutBlock /><EventsBlock /><HighlightsBlock /><ArchiveBlock />
+    <PartnersBlock /><TeamBlock /><JoinCalloutBlock /><ContactBlock /></>;
+}
+function App() {
+  const [overlay, setOverlay] = useState(null);
+  const eventData = useEvents();
+  const context = useMemo(() => ({
+    openForm: kind => setOverlay({ kind }),
+    openEvent: event => setOverlay({ event }),
+  }), []);
+  return <SiteContext.Provider value={context}>
+    <EventContext.Provider value={eventData}>
+      <a className="skip-link" href="#main">Skip to main content</a>
+      <Header />
+      <main id="main"><FallbackHome /></main>
+      <Footer />
+      {overlay && <Modal key={overlay.kind || overlay.event?.id}
+        kind={overlay.kind} event={overlay.event} onClose={() => setOverlay(null)} />}
+    </EventContext.Provider>
+  </SiteContext.Provider>;
 }
 
-createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);
+createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
