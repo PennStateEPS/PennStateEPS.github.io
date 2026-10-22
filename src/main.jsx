@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, createContext, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
-import { storyblokInit, apiPlugin, useStoryblok, storyblokEditable } from '@storyblok/react';
+import { storyblokInit, apiPlugin, useStoryblokBridge, storyblokEditable } from '@storyblok/react';
 import { organization as org, leadership, verifiedHighlights, confirmedPartners, faqs, links } from './content';
 import { loadCalendarEvents, connectedCalendar, calendarPublicUrl, eventStart, eventEnd, eventDateKey, nyDateKey, dateForKey, prettyDate, prettyTime, displayEventDate, shiftDateKey, mondayKey, initialSemester, semesterBounds, moveSemester } from './calendar';
 import './styles.css';
@@ -95,13 +95,47 @@ export function HeroBlock({
   </>;
 }
 
-// useStoryblok handles the Storyblok Bridge for live visual editing.
-// It fetches only published content because this GitHub Pages frontend is public/static.
-function CmsHero() {
-  const story = useStoryblok('home', { version: 'published' });
-  const blok = story?.content?.body?.find(item => item?.component === 'hero');
+// Published content is fetched explicitly, with visible diagnostics if something fails.
+// The public read-only token may be included in a public site. Never use a preview/admin token here.
+const cmsDebugEnabled = new URLSearchParams(window.location.search).get('cmsdebug') === '1';
+const storyblokOrigins = {
+  eu: 'https://api.storyblok.com',
+  us: 'https://api-us.storyblok.com',
+  ca: 'https://api-ca.storyblok.com',
+  ap: 'https://api-ap.storyblok.com',
+  cn: 'https://app.storyblokchina.cn',
+};
+
+function CmsDiagnostics({ status, message, components, value }) {
+  if (!cmsDebugEnabled) return null;
+  return <aside role="status" style={{position:'fixed', right:16, top:112, zIndex:99999,
+      width:'min(385px, calc(100vw - 32px))', background:'#fff', color:'#14233b',
+      border:'2px solid #0078ac', borderRadius:10, boxShadow:'0 12px 40px #0004',
+      padding:16, fontSize:13, lineHeight:1.6, overflowWrap:'anywhere'}}>
+    <strong style={{display:'block',fontSize:16}}>Storyblok connection check</strong>
+    <div><strong>Public token:</strong> {storyblokToken ? 'Configured' : 'MISSING'}</div>
+    <div><strong>Region:</strong> {storyblokRegion}</div>
+    <div><strong>Story slug:</strong> home</div>
+    <div><strong>Status:</strong> {status}</div>
+    {message && <div><strong>Detail:</strong> {message}</div>}
+    {components && <div><strong>Body blocks:</strong> {components}</div>}
+    {value && <div><strong>Hero description:</strong> {value}</div>}
+    <small style={{display:'block',marginTop:7,opacity:.7}}>Visible only with ?cmsdebug=1. No token is displayed.</small>
+  </aside>;
+}
+
+// Called only after we have a valid published Storyblok story.
+// Receives in-editor "input" events via the official React SDK bridge, so unpublished
+// changes can update the preview without putting a preview token on the public website.
+function EditableHero({ initialStory }) {
+  const [editingStory, setEditingStory] = useState(initialStory);
+  useEffect(() => setEditingStory(initialStory), [initialStory]);
+  useStoryblokBridge(initialStory.id, updatedStory => {
+    if (updatedStory?.content) setEditingStory(updatedStory);
+  });
+  const blok = editingStory?.content?.body?.find(x => x?.component === 'hero');
   if (!blok) return <HeroBlock />;
-  return <div className="storyblok__outline" {...storyblokEditable(blok)}>
+  return <div {...storyblokEditable(blok)}>
     <HeroBlock
       eyebrow={blok.eyebrow || undefined}
       headline={blok.headline || undefined}
@@ -114,8 +148,67 @@ function CmsHero() {
     />
   </div>;
 }
+
+function CmsHero() {
+  const [result, setResult] = useState({ status:'loading', message:'Checking published Home story', story:null });
+  useEffect(() => {
+    let active = true;
+    let controller = new AbortController();
+    async function load() {
+      setResult(old => ({...old, status:'loading', message:'Fetching published Home story'}));
+      try {
+        const origin = storyblokOrigins[storyblokRegion];
+        if (!origin) throw new Error('Unsupported region: ' + storyblokRegion);
+        const url = new URL(origin + '/v2/cdn/stories/home');
+        url.searchParams.set('token', storyblokToken);
+        url.searchParams.set('version','published');
+        url.searchParams.set('cv', String(Date.now()));
+        const response = await fetch(url, {signal: controller.signal, cache:'no-store'});
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const detail = data?.error || data?.message || 'Delivery API request failed';
+          throw new Error('HTTP ' + response.status + ': ' + String(detail));
+        }
+        if (!data.story?.content) throw new Error('API response has no story.content');
+        if (!Array.isArray(data.story.content.body)) throw new Error('Home story has no body Blocks field');
+        const hero = data.story.content.body.find(b => b?.component === 'hero');
+        if (!hero) throw new Error('No block with technical name "hero" in Home body. Found: ' + data.story.content.body.map(b => b.component).join(', '));
+        if (active) setResult({status:'CONNECTED', message:'Published content loaded successfully', story:data.story});
+      } catch (error) {
+        if (active && error.name !== 'AbortError') {
+          console.error('[IEEE EPS Storyblok]', error);
+          setResult({status:'ERROR', message: String(error.message || error), story:null});
+        }
+      }
+    }
+    load();
+    // Refetch when coming back from publishing in the other tab; no Git commit needed.
+    const refresh = () => {
+      controller.abort(); controller = new AbortController();
+      load();
+    };
+    const visibility = () => { if (!document.hidden) refresh(); };
+    window.addEventListener('focus',refresh);
+    document.addEventListener('visibilitychange',visibility);
+    return () => {
+      active = false; controller.abort();
+      window.removeEventListener('focus',refresh);
+      document.removeEventListener('visibilitychange',visibility);
+    };
+  }, []);
+  const body = result.story?.content?.body;
+  const hero = body?.find(x => x.component === 'hero');
+  return <>
+    {result.story ? <EditableHero initialStory={result.story}/> : <HeroBlock />}
+    <CmsDiagnostics status={result.status} message={result.message}
+      components={body?.map(b => b.component).join(', ')} value={hero?.description}/>
+  </>;
+}
 function HomepageHero() {
-  return storyblokToken ? <CmsHero /> : <HeroBlock />;
+  return storyblokToken ? <CmsHero /> : <>
+    <HeroBlock />
+    <CmsDiagnostics status="ERROR" message="VITE_STORYBLOK_PUBLIC_TOKEN is not included in this deployed build. Check GitHub Actions variable names, workflow environment, and redeploy." />
+  </>;
 }
 
 function useEvents(){ const [state,setState]=useState({items:[],loading:connectedCalendar,error:''});useEffect(()=>{if(!connectedCalendar)return;let controller=new AbortController();loadCalendarEvents(controller.signal).then(items=>setState({items,loading:false,error:''})).catch(e=>{if(!controller.signal.aborted)setState({items:[],loading:false,error:e.message})});return()=>controller.abort()},[]);return state;}
