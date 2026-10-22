@@ -1,39 +1,68 @@
 name: Deploy IEEE EPS website
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: pages
   cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      # The Storyblok PUBLIC read-only Content Delivery API token.
+      # Never put a Preview or Management API token in a VITE_ variable.
+      VITE_STORYBLOK_PUBLIC_TOKEN: ${{ vars.VITE_STORYBLOK_PUBLIC_TOKEN }}
+      VITE_STORYBLOK_REGION: ${{ vars.VITE_STORYBLOK_REGION || 'eu' }}
+      VITE_GOOGLE_CALENDAR_ID: ${{ vars.VITE_GOOGLE_CALENDAR_ID }}
+      VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY }}
+      VITE_CALENDAR_PUBLIC_URL: ${{ vars.VITE_CALENDAR_PUBLIC_URL }}
+      VITE_FORMSPREE_CONTACT_ID: ${{ vars.VITE_FORMSPREE_CONTACT_ID }}
+      VITE_FORMSPREE_SPONSOR_ID: ${{ vars.VITE_FORMSPREE_SPONSOR_ID }}
+      VITE_FORMSPREE_JOIN_ID: ${{ vars.VITE_FORMSPREE_JOIN_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
-        env:
-          VITE_BUILDER_API_KEY: ${{ vars.VITE_BUILDER_API_KEY }}
-          VITE_GOOGLE_CALENDAR_ID: ${{ vars.VITE_GOOGLE_CALENDAR_ID }}
-          VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY }}
-          VITE_CALENDAR_PUBLIC_URL: ${{ vars.VITE_CALENDAR_PUBLIC_URL }}
-          VITE_FORMSPREE_CONTACT_ID: ${{ vars.VITE_FORMSPREE_CONTACT_ID }}
-          VITE_FORMSPREE_SPONSOR_ID: ${{ vars.VITE_FORMSPREE_SPONSOR_ID }}
-          VITE_FORMSPREE_JOIN_ID: ${{ vars.VITE_FORMSPREE_JOIN_ID }}
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Validate Storyblok build settings
+        run: |
+          if [ -z "$VITE_STORYBLOK_PUBLIC_TOKEN" ]; then
+            echo "::error title=Storyblok public token missing::Create VITE_STORYBLOK_PUBLIC_TOKEN under Settings > Secrets and variables > Actions > Variables (not Secrets), then rerun this workflow."
+            exit 1
+          fi
+          echo "Storyblok public token: present (value hidden)"
+          echo "Storyblok region: $VITE_STORYBLOK_REGION"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build website
+        run: npm run build
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload built website
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: './dist'
-      - id: deployment
+          path: ./dist
+
+      - name: Deploy website
+        id: deployment
         uses: actions/deploy-pages@v4
