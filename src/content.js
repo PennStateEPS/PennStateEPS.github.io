@@ -13,9 +13,8 @@ export const leadership = [
   { name: 'Sohrab Sheikh Sofla', role: 'Interim Vice Chair' },
   { name: 'Asish Nayak', role: 'Interim Treasurer' },
   { name: 'Hridi Juberi', role: 'Interim Secretary' },
-  { name: 'Shruti Shukla', role: 'PR & Communications' },
-  { name: 'Mahin Ahamed', role: 'Event Organizing' },
-  { name: 'Md. Sultan Mahmud', role: 'Founding Committee' },
+  { name: 'Mahin Ahamed', role: 'Industry Relations Chair' },
+  { name: 'Shruti Shukla', role: 'Public Relations Chair' },
 ];
 // Do not publish fictional chapter events, partners, or achievements.
 // These arrays can be populated from Builder custom component fields.
