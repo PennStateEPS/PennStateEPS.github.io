@@ -127,29 +127,41 @@ function CmsDiagnostics({ status, message, components, value }) {
 // Called only after we have a valid published Storyblok story.
 // Receives in-editor "input" events via the official React SDK bridge, so unpublished
 // changes can update the preview without putting a preview token on the public website.
-function EditableHero({ initialStory }) {
+// Render published Storyblok content with in-editor updates for both hero and About.
+// All other sections remain the original working React components.
+function EditableHomepage({ initialStory }) {
   const [editingStory, setEditingStory] = useState(initialStory);
   useEffect(() => setEditingStory(initialStory), [initialStory]);
   useStoryblokBridge(initialStory.id, updatedStory => {
     if (updatedStory?.content) setEditingStory(updatedStory);
   });
-  const blok = editingStory?.content?.body?.find(x => x?.component === 'hero');
-  if (!blok) return <HeroBlock />;
-  return <div {...storyblokEditable(blok)}>
-    <HeroBlock
-      eyebrow={blok.eyebrow || undefined}
-      headline={blok.headline || undefined}
-      highlight={blok.highlight || undefined}
-      description={blok.description || undefined}
-      primary_button_text={blok.primary_button_text || undefined}
-      primary_button_url={blok.primary_button_url || undefined}
-      secondary_button_text={blok.secondary_button_text || undefined}
-      secondary_button_url={blok.secondary_button_url || undefined}
+  const body = editingStory?.content?.body || [];
+  const hero = body.find(x => x?.component === 'hero');
+  const about = body.find(x => x?.component === 'about_section');
+  return <>
+    {hero ? <div {...storyblokEditable(hero)}>
+      <HeroBlock
+        eyebrow={hero.eyebrow || undefined}
+        headline={hero.headline || undefined}
+        highlight={hero.highlight || undefined}
+        description={hero.description || undefined}
+        primary_button_text={hero.primary_button_text || undefined}
+        primary_button_url={hero.primary_button_url || undefined}
+        secondary_button_text={hero.secondary_button_text || undefined}
+        secondary_button_url={hero.secondary_button_url || undefined}
+      />
+    </div> : <HeroBlock />}
+    <AboutBlock
+      blok={about}
+      eyebrow={about?.eyebrow || undefined}
+      heading={about?.heading || undefined}
+      description={about?.description || undefined}
+      pillars={about?.pillars}
     />
-  </div>;
+  </>;
 }
 
-function CmsHero() {
+function CmsHomepage() {
   const [result, setResult] = useState({ status:'loading', message:'Checking published Home story', story:null });
   useEffect(() => {
     let active = true;
@@ -182,31 +194,30 @@ function CmsHero() {
       }
     }
     load();
-    // Refetch when coming back from publishing in the other tab; no Git commit needed.
     const refresh = () => {
-      controller.abort(); controller = new AbortController();
-      load();
+      controller.abort(); controller = new AbortController(); load();
     };
     const visibility = () => { if (!document.hidden) refresh(); };
-    window.addEventListener('focus',refresh);
-    document.addEventListener('visibilitychange',visibility);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', visibility);
     return () => {
       active = false; controller.abort();
-      window.removeEventListener('focus',refresh);
-      document.removeEventListener('visibilitychange',visibility);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', visibility);
     };
   }, []);
   const body = result.story?.content?.body;
   const hero = body?.find(x => x.component === 'hero');
   return <>
-    {result.story ? <EditableHero initialStory={result.story}/> : <HeroBlock />}
+    {result.story ? <EditableHomepage initialStory={result.story}/> : <><HeroBlock/><AboutBlock/></>}
     <CmsDiagnostics status={result.status} message={result.message}
       components={body?.map(b => b.component).join(', ')} value={hero?.description}/>
   </>;
 }
-function HomepageHero() {
-  return storyblokToken ? <CmsHero /> : <>
+function HomepageSections() {
+  return storyblokToken ? <CmsHomepage /> : <>
     <HeroBlock />
+    <AboutBlock />
     <CmsDiagnostics status="ERROR" message="VITE_STORYBLOK_PUBLIC_TOKEN is not included in this deployed build. Check GitHub Actions variable names, workflow environment, and redeploy." />
   </>;
 }
@@ -218,7 +229,46 @@ function useClock(){const [now,setNow]=useState(()=>Date.now());useEffect(()=>{c
 function Countdown({to}){const now=useClock();const delta=Math.max(0,to-now), d=Math.floor(delta/86400000),h=Math.floor(delta/3600000)%24,m=Math.floor(delta/60000)%60,s=Math.floor(delta/1000)%60;return <div className="countdown" aria-label={`${d} days ${h} hours ${m} minutes ${s} seconds until the event`}>{[[d,'DAYS'],[h,'HRS'],[m,'MIN'],[s,'SEC']].map(([n,label],i)=><React.Fragment key={label}>{i>0&&<span className="count-colon">:</span>}<span className="count-cell"><strong>{String(n).padStart(2,'0')}</strong><small>{label}</small></span></React.Fragment>)}</div>}
 function NextEventBanner(){const {items,loading,error}=useEventData();const {openEvent}=useSite();const now=useClock();const next=items.find(e=>eventEnd(e).getTime()>now);return <div className="container"><div className="next-banner"><div className="next-icon"><Icon name="calendar" size={24}/></div><div className="next-copy"><span className="mini-label">NEXT ON THE CALENDAR</span>{next?<><h3>{next.summary||'Chapter event'}</h3><p>{displayEventDate(next)}{next.location?` · ${next.location}`:''}</p></>:<><h3>{loading?'Loading chapter events…':error?'Calendar temporarily unavailable':'The next chapter event is on its way.'}</h3><p>{!connectedCalendar?'Our Google Calendar can be connected when the site goes live.':'Follow us for new events and announcements.'}</p></>}</div><div className="next-right">{next&&!next.start?.date && eventStart(next).getTime()>now?<Countdown to={eventStart(next).getTime()}/>:next&&eventStart(next).getTime()<=now?<span className="event-live">EVENT IN PROGRESS</span>:<span className="next-coming">STAY CONNECTED</span>}{next?<button className="text-link" onClick={()=>openEvent(next)}>Event details <Icon name="arrow" size={16}/></button>:<a className="text-link" href={org.linkedin} target="_blank" rel="noreferrer">Follow our updates <Icon name="arrow" size={16}/></a>}</div></div></div>}
 function SectionHeading({tag,title,description,right}){return <div className="section-heading"><div><span className="kicker"><span className="tiny-square"/>{tag}</span><h2>{title}</h2>{description&&<p>{description}</p>}</div>{right&&<div className="section-heading-right">{right}</div>}</div>}
-export function AboutBlock({title='Where curiosity meets innovation.',description=org.mission}){return <section className="section about-section" id="about"><div className="container"><SectionHeading tag="01 / ABOUT THE CHAPTER" title={title} description={description}/><div className="about-layout"><div className="about-statement"><span className="quote-mark">“</span><h3>More than a student chapter. <span>A launchpad for technical leadership.</span></h3><div className="about-rule"/><p>Established September 28, 2026 · IEEE EPS · Penn State</p></div><div className="pillar-grid"><div className="pillar"><span className="pillar-icon"><Icon name="bolt"/></span><h3>Learn & innovate</h3><p>Seminars, workshops, and exposure to research at the leading edge of microelectronics.</p></div><div className="pillar"><span className="pillar-icon"><Icon name="people"/></span><h3>Connect & collaborate</h3><p>Build bridges between students, academic research, and the semiconductor industry.</p></div><div className="pillar"><span className="pillar-icon"><Icon name="layers"/></span><h3>Grow & lead</h3><p>Create opportunities for professional development and hands-on chapter leadership.</p></div></div></div><div className="focus-wrap"><span>OUR TECHNICAL FOCUS</span><div className="focus-list">{org.focus.map(f=><span key={f}>{f}</span>)}</div></div></div></section>}
+const defaultMissionCards = [
+  { title: 'Learn & innovate', description: 'Seminars, workshops, and exposure to research at the leading edge of microelectronics.', icon: 'bolt' },
+  { title: 'Connect & collaborate', description: 'Build bridges between students, academic research, and the semiconductor industry.', icon: 'people' },
+  { title: 'Grow & lead', description: 'Create opportunities for professional development and hands-on chapter leadership.', icon: 'layers' },
+];
+export function AboutBlock({
+  blok,
+  eyebrow = '01 / ABOUT THE CHAPTER',
+  heading = 'Where curiosity meets innovation.',
+  description = org.mission,
+  pillars,
+}) {
+  const cmsCards = Array.isArray(pillars) ? pillars.filter(x => x?.component === 'mission_card') : [];
+  const cards = cmsCards.length ? cmsCards : defaultMissionCards;
+  return <section className="section about-section" id="about" {...(blok ? storyblokEditable(blok) : {})}>
+    <div className="container">
+      <SectionHeading tag={eyebrow} title={heading} description={description}/>
+      <div className="about-layout">
+        <div className="about-statement">
+          <span className="quote-mark">“</span>
+          <h3>More than a student chapter. <span>A launchpad for technical leadership.</span></h3>
+          <div className="about-rule"/>
+          <p>Established September 28, 2026 · IEEE EPS · Penn State</p>
+        </div>
+        <div className="pillar-grid">
+          {cards.map((card, index) => (
+            <div className="pillar" key={card._uid || index} {...(card._uid ? storyblokEditable(card) : {})}>
+              <span className="pillar-icon"><Icon name={['bolt', 'people', 'layers'].includes(card.icon) ? card.icon : 'layers'}/></span>
+              <h3>{card.title || 'Chapter initiative'}</h3>
+              <p>{card.description || ''}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="focus-wrap"><span>OUR TECHNICAL FOCUS</span>
+        <div className="focus-list">{org.focus.map(f => <span key={f}>{f}</span>)}</div>
+      </div>
+    </div>
+  </section>;
+}
 function EventCard({event}){const {openEvent}=useSite();return <button className="event-card" onClick={()=>openEvent(event)}><div className="event-card-date"><strong>{prettyDate(eventStart(event),{day:'numeric'})}</strong><span>{prettyDate(eventStart(event),{month:'short',year:'numeric'})}</span></div><div className="event-card-content"><span className="card-overline">IEEE EPS / UPCOMING</span><h3>{event.summary||'Chapter event'}</h3><p><Icon name="clock" size={15}/> {displayEventDate(event)}</p>{event.location&&<p><Icon name="pin" size={15}/> {event.location}</p>}</div><span className="event-card-arrow"><Icon name="arrow" size={18}/></span></button>}
 function CalendarBody({events,mode,cursor,sem,openEvent}){
   const today=nyDateKey(new Date());
@@ -258,7 +308,7 @@ function Modal({kind,event,onClose}){const [status,setStatus]=useState({type:'',
 }
 // The rest of the site remains the original working design, independently of Storyblok.
 function FallbackHome() {
-  return <><HomepageHero /><AboutBlock /><EventsBlock /><HighlightsBlock /><ArchiveBlock />
+  return <><HomepageSections /><EventsBlock /><HighlightsBlock /><ArchiveBlock />
     <PartnersBlock /><TeamBlock /><JoinCalloutBlock /><ContactBlock /></>;
 }
 function App() {
