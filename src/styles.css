@@ -92,3 +92,9 @@ html[data-cms-theme="slate"] .hero h1 em{color:#d2e0ed}
 .cms-layout-three .join-callout{display:grid;grid-template-columns:2fr 1fr;align-items:center}
 @media(max-width:800px){.cms-layout-two .partner-panel,.cms-layout-three .partner-panel,.cms-layout-two .join-callout,.cms-layout-three .join-callout{grid-template-columns:1fr}}
 @media(max-width:600px){.cms-layout-two .archive-rows,.cms-layout-three .archive-rows{grid-template-columns:1fr}}
+
+/* Storyblok v6: chapter mark/full logo (applies equally to header and footer). */
+.brand-logo-mark{width:42px;height:42px;flex:0 0 42px;object-fit:contain;border-radius:4px;display:block}
+.brand-logo-full{height:49px;width:auto;max-width:min(330px,44vw);object-fit:contain;display:block}
+.footer .brand-logo-full{max-width:min(270px,42vw);height:42px}
+@media(max-width:540px){.brand-logo-full{max-width:54vw;height:42px}.brand-logo-mark{width:36px;height:36px;flex-basis:36px}}

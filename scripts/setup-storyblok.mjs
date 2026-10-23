@@ -46,7 +46,12 @@ const defaultFields={
   eyebrow:'IEEE ELECTRONICS PACKAGING SOCIETY',headline:'Engineering',highlight:'what’s next.',
   description:'Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.',
   primary_button_text:'Explore events',primary_button_url:'#events',secondary_button_text:'Get involved',secondary_button_url:'#join',
-  illustration_mode:'circuit',show_next_event:true,badge_text:'OFFICIALLY EST. 09.28.2026',location_text:'University Park, Pennsylvania'
+  illustration_mode:'circuit',show_next_event:true,badge_text:'OFFICIALLY EST. 09.28.2026',location_text:'University Park, Pennsylvania',
+  art_panel_title:'ADVANCED PACKAGING',art_panel_subtitle:'PSU / EPS',
+  art_chip_one:'PHOTONICS',art_chip_two:'CHIPLETS',art_chip_three:'INTEGRATION',art_chip_center:'EPS',
+  art_panel_footer:'INTERCONNECT THE FUTURE',art_panel_status:'ACTIVE NETWORK',
+  art_caption_one_label:'01 / SYSTEMS',art_caption_one_title:'Packaging innovation',
+  art_caption_two_label:'02 / COMMUNITY',art_caption_two_title:'Ideas into impact' 
  },
  about_section:{
   eyebrow:'01 / ABOUT THE CHAPTER',heading:'Where curiosity meets innovation.',description:organization.mission,
@@ -115,7 +120,20 @@ for(const name of sectionNames){
 content.body=next;
 for(const [k,v] of Object.entries({
   full_cms_layout:true,site_theme:'ieee',site_density:'compact',site_width:'standard',
-  contact_email:organization.email,linkedin_url:organization.linkedin
+  contact_email:organization.email,linkedin_url:organization.linkedin,
+  logo_display_mode:'mark',chapter_logo_alt:'IEEE EPS Penn State chapter logo',
+  brand_title:'',brand_subtitle:'STUDENT CHAPTER',
+  topline_left:'IEEE Electronics Packaging Society · Penn State',topline_right:'Established 2026',
+  header_join_text:'Join the chapter',
+  nav_about:'About',nav_events:'Events',nav_highlights:'Highlights',nav_partners:'Partners',nav_team:'Team',nav_contact:'Contact',
+  footer_primary:'© {year} IEEE EPS Penn State Student Chapter. Established September 28, 2026.',
+  footer_secondary:'Independent student chapter website · University Park, PA',
+  next_event_label:'NEXT ON THE CALENDAR',next_event_empty_title:'The next chapter event is on its way.',
+  next_event_empty_description:'Follow us for new events and announcements.',
+  next_event_unconfigured_description:'Our Google Calendar can be connected when the site goes live.',
+  next_event_loading_title:'Loading chapter events…',next_event_error_title:'Calendar temporarily unavailable',
+  next_event_stay_label:'STAY CONNECTED',next_event_live_label:'EVENT IN PROGRESS',
+  next_event_details_label:'Event details',next_event_follow_label:'Follow our updates' 
 })) if(content[k]===undefined) content[k]=v;
 // Explicitly save a DRAFT — do not change published homepage until editor reviews it.
 await api(`/stories/${story.id}`,'PUT',{publish:false,story:{id:story.id,name:story.name,slug:story.slug,content}});

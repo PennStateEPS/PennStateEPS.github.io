@@ -19,7 +19,23 @@ if (storyblokToken) {
 
 const SiteContext = createContext({ openForm:()=>{}, openEvent:()=>{} });
 const useSite = () => useContext(SiteContext);
-const SiteConfigContext = createContext({ email: org.email, linkedin: org.linkedin });
+const DEFAULT_SITE_SETTINGS = {
+  email: org.email, linkedin: org.linkedin,
+  logo:'', logoMode:'mark', favicon:'', logoAlt:'IEEE EPS Penn State chapter logo',
+  brandTitle:'', brandSubtitle:'STUDENT CHAPTER',
+  headerTopLeft:'IEEE Electronics Packaging Society · Penn State',
+  headerTopRight:'Established 2026', headerJoinText:'Join the chapter',
+  navLabels:{},
+  footerPrimary:'© {year} IEEE EPS Penn State Student Chapter. Established September 28, 2026.',
+  footerSecondary:'Independent student chapter website · University Park, PA',
+  nextLabel:'NEXT ON THE CALENDAR', nextEmptyTitle:'The next chapter event is on its way.',
+  nextEmptyDescription:'Follow us for new events and announcements.',
+  nextUnconfiguredDescription:'Our Google Calendar can be connected when the site goes live.',
+  nextLoadingTitle:'Loading chapter events…', nextErrorTitle:'Calendar temporarily unavailable',
+  nextStayConnected:'STAY CONNECTED', nextProgressLabel:'EVENT IN PROGRESS',
+  nextDetailsLabel:'Event details', nextFollowLabel:'Follow our updates',
+};
+const SiteConfigContext = createContext(DEFAULT_SITE_SETTINGS);
 const useConfig = () => useContext(SiteConfigContext);
 
 
@@ -45,9 +61,45 @@ function Icon({name,size=18,strokeWidth=1.8,...props}){
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name]||paths.arrow}</svg>;
 }
-function Brand({compact=false}){return <a className="brand" href="#home" aria-label="IEEE EPS Penn State, homepage"><span className="brand-emblem"><span className="brand-circuit"/></span><span className="brand-copy"><strong>IEEE <b>EPS</b> <span>PENN STATE</span></strong>{!compact&&<small>STUDENT CHAPTER</small>}</span></a>}
-function Header(){const [opened,setOpened]=useState(false);const {openForm}=useSite();return <><div className="topline"><div className="container topline-inner"><span><span className="top-dot"/> IEEE Electronics Packaging Society · Penn State</span><span>Established 2026 <span className="topline-arrow">↗</span></span></div></div><header className="site-header"><div className="container header-inner"><Brand/><nav className={'nav '+(opened?'nav-open':'')} aria-label="Main navigation">{links.map(x=><a key={x.id} href={'#'+x.id} onClick={()=>setOpened(false)}>{x.label}</a>)}<button className="button button-small nav-mobile-join" onClick={()=>{setOpened(false);openForm('join')}}>Join the chapter <Icon name="arrow" size={16}/></button></nav><div className="header-end"><button className="button button-small nav-desktop-join" onClick={()=>openForm('join')}>Join the chapter <Icon name="arrow" size={16}/></button><button className="menu-toggle" aria-label={opened?'Close menu':'Open menu'} aria-expanded={opened} onClick={()=>setOpened(v=>!v)}><Icon name={opened?'close':'menu'} size={23}/></button></div></div></header></>}
-function CircuitArt(){return <div className="art-outer" aria-label="Abstract semiconductor packaging and photonic interconnect illustration" role="img"><div className="art-orbit orbit-1"/><div className="art-orbit orbit-2"/><div className="art-panel"><div className="art-panel-top"><span>ADVANCED PACKAGING</span><span>PSU / EPS</span></div><div className="art-grid"><div className="trace trace-1"/><div className="trace trace-2"/><div className="trace trace-3"/><div className="trace trace-4"/><div className="trace trace-5"/><div className="chip-assembly"><div className="chip chip-a"><span>PHOTONICS</span></div><div className="chip chip-b"><span>CHIPLETS</span></div><div className="chip chip-c"><span>INTEGRATION</span></div><div className="chip-core"><div className="core-lines"/><span>EPS</span></div></div><div className="grid-point p1"/><div className="grid-point p2"/><div className="grid-point p3"/><div className="grid-point p4"/></div><div className="art-panel-foot"><span>INTERCONNECT THE FUTURE</span><span className="art-signal">● &nbsp; ACTIVE NETWORK</span></div></div><div className="art-caption top-right"><span>01 / SYSTEMS</span><strong>Packaging innovation</strong></div><div className="art-caption bottom-left"><span>02 / COMMUNITY</span><strong>Ideas into impact</strong></div></div>}
+function Brand({compact=false}){
+ const config=useConfig();
+ const logo=config.logo;
+ const full=Boolean(logo && config.logoMode==='full');
+ return <a className={'brand '+(full?'brand-has-full-logo':'')} href="#home" aria-label="IEEE EPS Penn State, homepage">
+  {full ? <img className="brand-logo-full" src={logo} alt={config.logoAlt} />
+   : <>
+     {logo ? <img className="brand-logo-mark" src={logo} alt={config.logoAlt} />
+       : <span className="brand-emblem" aria-hidden="true"><span className="brand-circuit"/></span>}
+     <span className="brand-copy"><strong>{config.brandTitle || <>IEEE <b>EPS</b> <span>PENN STATE</span></>}</strong>
+       {!compact && <small>{config.brandSubtitle || 'STUDENT CHAPTER'}</small>}</span>
+   </>}
+ </a>;
+}
+function Header(){
+ const [opened,setOpened]=useState(false);const {openForm}=useSite();const config=useConfig();
+ const nav=links.map(x=>({...x,label:config.navLabels?.[x.id]||x.label}));
+ const joinText=config.headerJoinText||'Join the chapter';
+ return <><div className="topline"><div className="container topline-inner"><span><span className="top-dot"/> {config.headerTopLeft}</span><span>{config.headerTopRight} <span className="topline-arrow">↗</span></span></div></div>
+ <header className="site-header"><div className="container header-inner"><Brand/>
+  <nav className={'nav '+(opened?'nav-open':'')} aria-label="Main navigation">
+   {nav.map(x=><a key={x.id} href={'#'+x.id} onClick={()=>setOpened(false)}>{x.label}</a>)}
+   <button className="button button-small nav-mobile-join" onClick={()=>{setOpened(false);openForm('join')}}>{joinText} <Icon name="arrow" size={16}/></button>
+  </nav><div className="header-end"><button className="button button-small nav-desktop-join" onClick={()=>openForm('join')}>{joinText} <Icon name="arrow" size={16}/></button>
+   <button className="menu-toggle" aria-label={opened?'Close menu':'Open menu'} aria-expanded={opened} onClick={()=>setOpened(v=>!v)}><Icon name={opened?'close':'menu'} size={23}/></button>
+  </div></div></header></>;
+}
+function CircuitArt({labels={}}){
+ const label=(key,fallback)=>typeof labels[key]==='string'?labels[key]:fallback;
+ return <div className="art-outer" aria-label="Abstract semiconductor packaging and photonic interconnect illustration" role="img"><div className="art-orbit orbit-1"/><div className="art-orbit orbit-2"/>
+ <div className="art-panel"><div className="art-panel-top"><span>{label('art_panel_title','ADVANCED PACKAGING')}</span><span>{label('art_panel_subtitle','PSU / EPS')}</span></div>
+ <div className="art-grid"><div className="trace trace-1"/><div className="trace trace-2"/><div className="trace trace-3"/><div className="trace trace-4"/><div className="trace trace-5"/>
+ <div className="chip-assembly"><div className="chip chip-a"><span>{label('art_chip_one','PHOTONICS')}</span></div><div className="chip chip-b"><span>{label('art_chip_two','CHIPLETS')}</span></div><div className="chip chip-c"><span>{label('art_chip_three','INTEGRATION')}</span></div><div className="chip-core"><div className="core-lines"/><span>{label('art_chip_center','EPS')}</span></div></div>
+ <div className="grid-point p1"/><div className="grid-point p2"/><div className="grid-point p3"/><div className="grid-point p4"/></div>
+ <div className="art-panel-foot"><span>{label('art_panel_footer','INTERCONNECT THE FUTURE')}</span><span className="art-signal">● &nbsp; {label('art_panel_status','ACTIVE NETWORK')}</span></div></div>
+ <div className="art-caption top-right"><span>{label('art_caption_one_label','01 / SYSTEMS')}</span><strong>{label('art_caption_one_title','Packaging innovation')}</strong></div>
+ <div className="art-caption bottom-left"><span>{label('art_caption_two_label','02 / COMMUNITY')}</span><strong>{label('art_caption_two_title','Ideas into impact')}</strong></div>
+ </div>;
+}
 // Only the hero copy and links are controlled by the Storyblok hero block in this first integration.
 // The chapter's other sections remain untouched so a single Storyblok block cannot erase them.
 function safeHeroHref(value, fallback) {
@@ -76,6 +128,7 @@ export function HeroBlock({
   secondary_button_text='Get involved', secondary_button_url='#join',
   hero_image='', illustration_mode='circuit',show_next_event=true,
   badge_text='OFFICIALLY EST. 09.28.2026',location_text='University Park, Pennsylvania',
+  art_labels={},
 }) {
   const imageMode=illustration_mode === 'image' && hero_image;
   const hasVisual=illustration_mode !== 'none';
@@ -96,7 +149,7 @@ export function HeroBlock({
           </div>
         </div>
         {imageMode ? <div className="cms-hero-picture"><img src={hero_image} alt="Advanced packaging chapter illustration" loading="eager"/></div>
-          : hasVisual ? <CircuitArt/> : null}
+          : hasVisual ? <CircuitArt labels={art_labels}/> : null}
       </div>
     </section>
     {show_next_event!==false && <NextEventBanner/>}
@@ -172,7 +225,7 @@ function cmsBlock(b) {
         secondary_button_url={b.secondary_button_url ?? undefined}
         hero_image={safeAsset(b.hero_image)} illustration_mode={b.illustration_mode ?? 'circuit'}
         badge_text={b.badge_text ?? undefined} location_text={b.location_text ?? undefined}
-        show_next_event={b.show_next_event !== false}/>;
+        show_next_event={b.show_next_event !== false} art_labels={b}/>;
       break;
     case 'about_section':
       component=<AboutBlock blok={b} eyebrow={b.eyebrow ?? undefined} heading={b.heading ?? undefined}
@@ -255,7 +308,29 @@ function EditableHomepage({ initialStory, onSettingsChange }) {
     root.dataset.cmsDensity=['compact','standard','spacious'].includes(content.site_density)?content.site_density:'compact';
     root.dataset.cmsWidth=content.site_width==='wide'?'wide':'standard';
     const email=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(content.contact_email||'') ? content.contact_email : org.email;
-    onSettingsChange?.({email,linkedin:safeExternal(content.linkedin_url)||org.linkedin});
+    const strings = {
+      brandTitle:'brand_title',brandSubtitle:'brand_subtitle',logoAlt:'chapter_logo_alt',
+      headerTopLeft:'topline_left',headerTopRight:'topline_right',headerJoinText:'header_join_text',
+      footerPrimary:'footer_primary',footerSecondary:'footer_secondary',
+      nextLabel:'next_event_label',nextEmptyTitle:'next_event_empty_title',
+      nextEmptyDescription:'next_event_empty_description',
+      nextUnconfiguredDescription:'next_event_unconfigured_description',
+      nextLoadingTitle:'next_event_loading_title',nextErrorTitle:'next_event_error_title',
+      nextStayConnected:'next_event_stay_label',nextProgressLabel:'next_event_live_label',
+      nextDetailsLabel:'next_event_details_label',nextFollowLabel:'next_event_follow_label'
+    };
+    const settings={...DEFAULT_SITE_SETTINGS,email,linkedin:safeExternal(content.linkedin_url)||org.linkedin,
+      logo:safeAsset(content.chapter_logo), favicon:safeAsset(content.site_favicon),
+      logoMode:content.logo_display_mode==='full'?'full':'mark'};
+    for(const [key,field] of Object.entries(strings)){
+      if(typeof content[field]==='string' && content[field].trim()) settings[key]=content[field];
+    }
+    settings.navLabels={};
+    for(const link of links){
+      const label=content['nav_'+link.id];
+      if(typeof label==='string' && label.trim())settings.navLabels[link.id]=label;
+    }
+    onSettingsChange?.(settings);
   },[editingStory?.content, onSettingsChange]);
   const body = editingStory?.content?.body || [];
   const fullLayout = editingStory?.content?.full_cms_layout === true;
@@ -312,7 +387,7 @@ const EventContext=createContext({items:[],loading:false,error:''});
 function useEventData(){return useContext(EventContext)}
 function useClock(){const [now,setNow]=useState(()=>Date.now());useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);return now;}
 function Countdown({to}){const now=useClock();const delta=Math.max(0,to-now), d=Math.floor(delta/86400000),h=Math.floor(delta/3600000)%24,m=Math.floor(delta/60000)%60,s=Math.floor(delta/1000)%60;return <div className="countdown" aria-label={`${d} days ${h} hours ${m} minutes ${s} seconds until the event`}>{[[d,'DAYS'],[h,'HRS'],[m,'MIN'],[s,'SEC']].map(([n,label],i)=><React.Fragment key={label}>{i>0&&<span className="count-colon">:</span>}<span className="count-cell"><strong>{String(n).padStart(2,'0')}</strong><small>{label}</small></span></React.Fragment>)}</div>}
-function NextEventBanner(){const config=useConfig();const {items,loading,error}=useEventData();const {openEvent}=useSite();const now=useClock();const next=items.find(e=>eventEnd(e).getTime()>now);return <div className="container"><div className="next-banner"><div className="next-icon"><Icon name="calendar" size={24}/></div><div className="next-copy"><span className="mini-label">NEXT ON THE CALENDAR</span>{next?<><h3>{next.summary||'Chapter event'}</h3><p>{displayEventDate(next)}{next.location?` · ${next.location}`:''}</p></>:<><h3>{loading?'Loading chapter events…':error?'Calendar temporarily unavailable':'The next chapter event is on its way.'}</h3><p>{!connectedCalendar?'Our Google Calendar can be connected when the site goes live.':'Follow us for new events and announcements.'}</p></>}</div><div className="next-right">{next&&!next.start?.date && eventStart(next).getTime()>now?<Countdown to={eventStart(next).getTime()}/>:next&&eventStart(next).getTime()<=now?<span className="event-live">EVENT IN PROGRESS</span>:<span className="next-coming">STAY CONNECTED</span>}{next?<button className="text-link" onClick={()=>openEvent(next)}>Event details <Icon name="arrow" size={16}/></button>:<a className="text-link" href={config.linkedin} target="_blank" rel="noreferrer">Follow our updates <Icon name="arrow" size={16}/></a>}</div></div></div>}
+function NextEventBanner(){const config=useConfig();const {items,loading,error}=useEventData();const {openEvent}=useSite();const now=useClock();const next=items.find(e=>eventEnd(e).getTime()>now);return <div className="container"><div className="next-banner"><div className="next-icon"><Icon name="calendar" size={24}/></div><div className="next-copy"><span className="mini-label">{config.nextLabel}</span>{next?<><h3>{next.summary||'Chapter event'}</h3><p>{displayEventDate(next)}{next.location?` · ${next.location}`:''}</p></>:<><h3>{loading?config.nextLoadingTitle:error?config.nextErrorTitle:config.nextEmptyTitle}</h3><p>{!connectedCalendar?config.nextUnconfiguredDescription:config.nextEmptyDescription}</p></>}</div><div className="next-right">{next&&!next.start?.date && eventStart(next).getTime()>now?<Countdown to={eventStart(next).getTime()}/>:next&&eventStart(next).getTime()<=now?<span className="event-live">{config.nextProgressLabel}</span>:<span className="next-coming">{config.nextStayConnected}</span>}{next?<button className="text-link" onClick={()=>openEvent(next)}>{config.nextDetailsLabel} <Icon name="arrow" size={16}/></button>:<a className="text-link" href={config.linkedin} target="_blank" rel="noreferrer">{config.nextFollowLabel} <Icon name="arrow" size={16}/></a>}</div></div></div>}
 function SectionHeading({tag,title,description,right}){return <div className="section-heading"><div><span className="kicker"><span className="tiny-square"/>{tag}</span><h2>{title}</h2>{description&&<p>{description}</p>}</div>{right&&<div className="section-heading-right">{right}</div>}</div>}
 const defaultMissionCards = [
   { title: 'Learn & innovate', description: 'Seminars, workshops, and exposure to research at the leading edge of microelectronics.', icon: 'bolt' },
@@ -515,7 +590,7 @@ function ContactBlock({
  </div></section>;
 }
 
-function Footer(){const config=useConfig();return <footer className="footer"><div className="container footer-main"><Brand compact/><div className="footer-nav">{links.map(x=><a href={'#'+x.id} key={x.id}>{x.label}</a>)}</div><a className="footer-up" href="#home" aria-label="Back to top">↑</a></div><div className="container footer-bottom"><span>© {new Date().getFullYear()} IEEE EPS Penn State Student Chapter. Established September 28, 2026.</span><span>Independent student chapter website · University Park, PA</span></div></footer>}
+function Footer(){const config=useConfig();const primary=(config.footerPrimary||DEFAULT_SITE_SETTINGS.footerPrimary).replaceAll('{year}',String(new Date().getFullYear()));return <footer className="footer"><div className="container footer-main"><Brand compact/><div className="footer-nav">{links.map(x=><a href={'#'+x.id} key={x.id}>{config.navLabels?.[x.id]||x.label}</a>)}</div><a className="footer-up" href="#home" aria-label="Back to top">↑</a></div><div className="container footer-bottom"><span>{primary}</span><span>{config.footerSecondary}</span></div></footer>}
 function Modal({kind,event,onClose}){const config=useConfig();const [status,setStatus]=useState({type:'',message:''}),[submitting,setSubmitting]=useState(false);useEffect(()=>{const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);document.body.classList.add('modal-open');return()=>{document.body.classList.remove('modal-open');window.removeEventListener('keydown',onKey)}},[onClose]);
  const names={contact:'Send us a message',sponsor:'Explore a partnership',join:'Join the community'};const desc={contact:'General inquiries, event suggestions, or questions about the chapter.',sponsor:'Tell us a little about the opportunity you have in mind.',join:'Express your interest in IEEE EPS Penn State activities.'};const ids={contact:import.meta.env.VITE_FORMSPREE_CONTACT_ID,sponsor:import.meta.env.VITE_FORMSPREE_SPONSOR_ID,join:import.meta.env.VITE_FORMSPREE_JOIN_ID};const id=ids[kind];
  async function submit(e){e.preventDefault();if(!id){setStatus({type:'error',message:'This form is not connected yet. Please email the chapter directly.'});return}setSubmitting(true);setStatus({type:'',message:''});try{const response=await fetch(`https://formspree.io/f/${encodeURIComponent(id)}`,{method:'POST',body:new FormData(e.currentTarget),headers:{Accept:'application/json'}});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.errors?.map(e=>e.message).join(' ')||'Submission failed');e.currentTarget.reset();setStatus({type:'success',message:'Thanks! Your message has been submitted successfully.'})}catch(e){setStatus({type:'error',message:e.message||'Something went wrong. Please try again.'})}finally{setSubmitting(false)}}
@@ -526,7 +601,15 @@ function Modal({kind,event,onClose}){const config=useConfig();const [status,setS
 function FallbackHome({onSettingsChange}) { return <HomepageSections onSettingsChange={onSettingsChange}/>; }
 function App() {
   const [overlay, setOverlay] = useState(null);
-  const [siteSettings,setSiteSettings]=useState({email:org.email,linkedin:org.linkedin});
+  const [siteSettings,setSiteSettings]=useState(DEFAULT_SITE_SETTINGS);
+  useEffect(() => {
+    // Reflect the published favicon in the browser tab without editing public/favicon.svg.
+    let icon=document.querySelector('link[rel="icon"]');
+    if(!icon){icon=document.createElement('link');icon.rel='icon';document.head.appendChild(icon);}
+    if(!icon.dataset.originalHref)icon.dataset.originalHref=icon.getAttribute('href') || '/favicon.svg';
+    const source=siteSettings.favicon || icon.dataset.originalHref;
+    if(icon.getAttribute('href')!==source)icon.setAttribute('href',source);
+  }, [siteSettings.favicon]);
   const eventData = useEvents();
   const context = useMemo(() => ({
     openForm: kind => setOverlay({ kind }),
