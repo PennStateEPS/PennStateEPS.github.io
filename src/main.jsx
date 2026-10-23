@@ -19,6 +19,9 @@ if (storyblokToken) {
 
 const SiteContext = createContext({ openForm:()=>{}, openEvent:()=>{} });
 const useSite = () => useContext(SiteContext);
+const SiteConfigContext = createContext({ email: org.email, linkedin: org.linkedin });
+const useConfig = () => useContext(SiteConfigContext);
+
 
 function Icon({name,size=18,strokeWidth=1.8,...props}){
   const paths={
@@ -66,32 +69,37 @@ function HeroAction({ label, href, secondary = false }) {
     rel={external ? 'noopener noreferrer' : undefined}>{label} <Icon name="arrow" /></a>;
 }
 export function HeroBlock({
-  eyebrow = 'IEEE ELECTRONICS PACKAGING SOCIETY',
-  headline = 'Engineering',
-  highlight = 'what’s next.',
-  description = 'Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.',
-  primary_button_text = 'Explore events',
-  primary_button_url = '#events',
-  secondary_button_text = 'Get involved',
-  secondary_button_url = '#join',
+  eyebrow='IEEE ELECTRONICS PACKAGING SOCIETY',
+  headline='Engineering', highlight='what’s next.',
+  description='Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.',
+  primary_button_text='Explore events', primary_button_url='#events',
+  secondary_button_text='Get involved', secondary_button_url='#join',
+  hero_image='', illustration_mode='circuit',show_next_event=true,
+  badge_text='OFFICIALLY EST. 09.28.2026',location_text='University Park, Pennsylvania',
 }) {
+  const imageMode=illustration_mode === 'image' && hero_image;
+  const hasVisual=illustration_mode !== 'none';
   return <>
     <section className="hero" id="home">
-      <div className="container hero-grid">
+      <div className={'container hero-grid '+(!hasVisual?'hero-grid-single':'')}>
         <div className="hero-copy">
           <div className="eyebrow"><span className="eyebrow-line" />{eyebrow}</div>
-          <h1>{headline}{highlight ? <><br /><em>{highlight}</em></> : null}</h1>
+          <h1>{headline}{highlight ? <><br/><em>{highlight}</em></> : null}</h1>
           <p>{description}</p>
           <div className="hero-actions">
-            <HeroAction label={primary_button_text} href={primary_button_url} />
-            <HeroAction label={secondary_button_text} href={secondary_button_url} secondary />
+            {primary_button_text && <HeroAction label={primary_button_text} href={primary_button_url} />}
+            {secondary_button_text && <HeroAction label={secondary_button_text} href={secondary_button_url} secondary/>}
           </div>
-          <div className="hero-line"><span className="hero-pill"><span className="live-dot" />OFFICIALLY EST. 09.28.2026</span><span>University Park, Pennsylvania</span></div>
+          <div className="hero-line">
+            {badge_text && <span className="hero-pill"><span className="live-dot"/>{badge_text}</span>}
+            {location_text && <span>{location_text}</span>}
+          </div>
         </div>
-        <CircuitArt />
+        {imageMode ? <div className="cms-hero-picture"><img src={hero_image} alt="Advanced packaging chapter illustration" loading="eager"/></div>
+          : hasVisual ? <CircuitArt/> : null}
       </div>
     </section>
-    <NextEventBanner />
+    {show_next_event!==false && <NextEventBanner/>}
   </>;
 }
 
@@ -143,45 +151,86 @@ function safeExternal(value) {
 }
 function nestedItems(source, name) { return Array.isArray(source) ? source.filter(x=>x?.component===name) : []; }
 function cmsBlock(b) {
-  const common = {key:b._uid || b.component};
-  // The outer wrapper carries Storyblok's editing marker without modifying existing styles.
+  if (!b || b.visible === false) return null;
+  const tone=['default','light','white','dark'].includes(b.tone) ? b.tone : 'default';
+  const spacing=['compact','standard','spacious'].includes(b.spacing) ? b.spacing : 'standard';
+  const align=b.heading_alignment==='center'?'center':'left';
+  const layout=['auto','two','three','list'].includes(b.layout) ? b.layout : 'auto';
+  const attrs={
+    key:b._uid || b.component,
+    ...storyblokEditable(b),
+    className:`cms-section cms-tone-${tone} cms-space-${spacing} cms-align-${align} cms-layout-${layout}`
+  };
+  let component = null;
   switch (b.component) {
-    case 'hero': return <div {...common} {...storyblokEditable(b)}>
-      <HeroBlock eyebrow={b.eyebrow || undefined} headline={b.headline || undefined}
-        highlight={b.highlight || undefined} description={b.description || undefined}
-        primary_button_text={b.primary_button_text || undefined}
-        primary_button_url={b.primary_button_url || undefined}
-        secondary_button_text={b.secondary_button_text || undefined}
-        secondary_button_url={b.secondary_button_url || undefined}/></div>;
-    case 'about_section': return <AboutBlock {...common} blok={b} eyebrow={b.eyebrow || undefined}
-      heading={b.heading || undefined} description={b.description || undefined} pillars={b.pillars}/>;
-    case 'events_section': return <div {...common} {...storyblokEditable(b)}><EventsBlock
-      title={b.title || undefined} description={b.description || undefined}/></div>;
-    case 'highlights_section': return <div {...common} {...storyblokEditable(b)}><HighlightsBlock
-      title={b.title || undefined} description={b.description || undefined}
-      items={nestedItems(b.items,'highlight_item').map(x=>({
-        ...x, image:safeAsset(x.image), link:safeExternal(x.link)
-      }))}/></div>;
-    case 'archive_section': return <div {...common} {...storyblokEditable(b)}><ArchiveBlock
-      title={b.title || undefined}/></div>;
-    case 'partners_section': return <div {...common} {...storyblokEditable(b)}><PartnersBlock
-      title={b.title || undefined} description={b.description || undefined}
-      partners={nestedItems(b.partners,'partner_item').map(x=>({
-        ...x, logo:safeAsset(x.logo), website:safeExternal(x.website)
-      }))}/></div>;
-    case 'team_section': return <div {...common} {...storyblokEditable(b)}><TeamBlock
-      title={b.title || undefined} description={b.description || undefined}
-      advisor={b.advisor || undefined}
-      people={nestedItems(b.people,'team_member').map(x=>({...x,photo:safeAsset(x.photo),linkedin:safeExternal(x.linkedin)}))}/></div>;
-    case 'join_section': return <div {...common} {...storyblokEditable(b)}><JoinCalloutBlock
-      title={b.title || undefined} description={b.description || undefined}
-      buttonText={b.button_text || undefined}/></div>;
-    case 'contact_section': return <div {...common} {...storyblokEditable(b)}><ContactBlock
-      title={b.title || undefined} description={b.description || undefined}
-      items={nestedItems(b.faqs,'faq_item')}/></div>;
+    case 'hero':
+      component=<HeroBlock eyebrow={b.eyebrow ?? undefined} headline={b.headline ?? undefined}
+        highlight={b.highlight ?? undefined} description={b.description ?? undefined}
+        primary_button_text={b.primary_button_text ?? undefined}
+        primary_button_url={b.primary_button_url ?? undefined}
+        secondary_button_text={b.secondary_button_text ?? undefined}
+        secondary_button_url={b.secondary_button_url ?? undefined}
+        hero_image={safeAsset(b.hero_image)} illustration_mode={b.illustration_mode ?? 'circuit'}
+        badge_text={b.badge_text ?? undefined} location_text={b.location_text ?? undefined}
+        show_next_event={b.show_next_event !== false}/>;
+      break;
+    case 'about_section':
+      component=<AboutBlock blok={b} eyebrow={b.eyebrow ?? undefined} heading={b.heading ?? undefined}
+        description={b.description ?? undefined} pillars={b.pillars}
+        statementHeading={b.statement_heading ?? undefined} statementHighlight={b.statement_highlight ?? undefined}
+        statementCaption={b.statement_caption ?? undefined} focusTitle={b.focus_title ?? undefined}
+        focusTags={nestedItems(b.focus_tags,'focus_tag')}
+        showStatement={b.show_statement !== false} showFocus={b.show_focus !== false}/>;
+      break;
+    case 'events_section':
+      component=<EventsBlock title={b.title ?? undefined} description={b.description ?? undefined}
+        eyebrow={b.eyebrow ?? undefined} upcomingTitle={b.upcoming_title ?? undefined}
+        calendarTitle={b.calendar_title ?? undefined} upcomingCount={Number(b.upcoming_count)||3}
+        initialView={b.initial_view || 'month'} showUpcoming={b.show_upcoming !== false}
+        showCalendar={b.show_calendar !== false}/>;
+      break;
+    case 'highlights_section':
+      component=<HighlightsBlock title={b.title ?? undefined} description={b.description ?? undefined}
+        eyebrow={b.eyebrow ?? undefined} emptyTitle={b.empty_title ?? undefined}
+        emptyDescription={b.empty_description ?? undefined}
+        items={nestedItems(b.items,'highlight_item').map(x=>({...x,image:safeAsset(x.image),link:safeExternal(x.link)}))}/>;
+      break;
+    case 'archive_section':
+      component=<ArchiveBlock title={b.title ?? undefined} eyebrow={b.eyebrow ?? undefined}
+        emptyDescription={b.empty_description ?? undefined} maxItems={Number(b.max_items)||25}
+        showSearch={b.show_search !== false}/>;
+      break;
+    case 'partners_section':
+      component=<PartnersBlock title={b.title ?? undefined} description={b.description ?? undefined}
+        eyebrow={b.eyebrow ?? undefined} buttonText={b.button_text ?? undefined}
+        featureHeading={b.feature_heading ?? undefined} featureCaption={b.feature_caption ?? undefined}
+        offers={nestedItems(b.offers,'partner_offer')}
+        showVisual={b.show_visual !== false}
+        partners={nestedItems(b.partners,'partner_item').map(x=>({...x, logo:safeAsset(x.logo),website:safeExternal(x.website)}))}/>;
+      break;
+    case 'team_section':
+      component=<TeamBlock title={b.title ?? undefined} description={b.description ?? undefined}
+        eyebrow={b.eyebrow ?? undefined} advisor={b.advisor ?? undefined}
+        advisorLabel={b.advisor_label ?? undefined} interimNote={b.interim_note ?? undefined}
+        people={nestedItems(b.people,'team_member').map(x=>({...x,photo:safeAsset(x.photo),linkedin:safeExternal(x.linkedin)}))}/>;
+      break;
+    case 'join_section':
+      component=<JoinCalloutBlock title={b.title ?? undefined} description={b.description ?? undefined}
+        eyebrow={b.eyebrow ?? undefined} buttonText={b.button_text ?? undefined}
+        showButton={b.show_button !== false}/>;
+      break;
+    case 'contact_section':
+      component=<ContactBlock title={b.title ?? undefined} description={b.description ?? undefined}
+        eyebrow={b.eyebrow ?? undefined} email={b.email} address={b.address}
+        linkedin={safeExternal(b.linkedin)} contactButtonText={b.contact_button_text}
+        faqHeading={b.faq_heading} showFaq={b.show_faq !== false}
+        items={nestedItems(b.faqs,'faq_item')}/>;
+      break;
     default: return null;
   }
+  return <div {...attrs}>{component}</div>;
 }
+
 function DefaultSections({override=[]}) {
   const lookup = new Map(override.filter(b=>HOME_ORDER.includes(b.component)).map(b=>[b.component,b]));
   return <>{HOME_ORDER.map(name => {
@@ -192,18 +241,28 @@ function DefaultSections({override=[]}) {
     return cmsBlock(block);
   })}</>;
 }
-function EditableHomepage({ initialStory }) {
+function EditableHomepage({ initialStory, onSettingsChange }) {
   const [editingStory, setEditingStory] = useState(initialStory);
   useEffect(() => setEditingStory(initialStory), [initialStory]);
   useStoryblokBridge(initialStory.id, updatedStory => {
     if (updatedStory?.content) setEditingStory(updatedStory);
   });
+  useEffect(() => {
+    const content=editingStory?.content;
+    if (!content) return;
+    const root=document.documentElement;
+    root.dataset.cmsTheme=['ieee','navy','teal','slate'].includes(content.site_theme)?content.site_theme:'ieee';
+    root.dataset.cmsDensity=['compact','standard','spacious'].includes(content.site_density)?content.site_density:'compact';
+    root.dataset.cmsWidth=content.site_width==='wide'?'wide':'standard';
+    const email=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(content.contact_email||'') ? content.contact_email : org.email;
+    onSettingsChange?.({email,linkedin:safeExternal(content.linkedin_url)||org.linkedin});
+  },[editingStory?.content, onSettingsChange]);
   const body = editingStory?.content?.body || [];
   const fullLayout = editingStory?.content?.full_cms_layout === true;
   // Maintain full old site until the complete Storyblok schema and page are published.
   return fullLayout ? <>{body.map(cmsBlock)}</> : <DefaultSections override={body}/>;
 }
-function CmsHomepage() {
+function CmsHomepage({onSettingsChange}) {
   const [result, setResult] = useState({ status:'loading', message:'Checking published Home story', story:null });
   useEffect(() => {
     let active = true;
@@ -239,12 +298,12 @@ function CmsHomepage() {
   }, []);
   const body=result.story?.content?.body;
   const hero=body?.find(x=>x.component==='hero');
-  return <>{result.story ? <EditableHomepage initialStory={result.story}/> : <DefaultSections/>}
+  return <>{result.story ? <EditableHomepage initialStory={result.story} onSettingsChange={onSettingsChange}/> : <DefaultSections/>}
     <CmsDiagnostics status={result.status} message={result.message}
       components={body?.map(b=>b.component).join(', ')} value={hero?.description}/></>;
 }
-function HomepageSections() {
-  return storyblokToken ? <CmsHomepage/> : <><DefaultSections/>
+function HomepageSections({onSettingsChange}) {
+  return storyblokToken ? <CmsHomepage onSettingsChange={onSettingsChange}/> : <><DefaultSections/>
     <CmsDiagnostics status="ERROR" message="VITE_STORYBLOK_PUBLIC_TOKEN missing from deployed build."/></>;
 }
 
@@ -253,7 +312,7 @@ const EventContext=createContext({items:[],loading:false,error:''});
 function useEventData(){return useContext(EventContext)}
 function useClock(){const [now,setNow]=useState(()=>Date.now());useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);return now;}
 function Countdown({to}){const now=useClock();const delta=Math.max(0,to-now), d=Math.floor(delta/86400000),h=Math.floor(delta/3600000)%24,m=Math.floor(delta/60000)%60,s=Math.floor(delta/1000)%60;return <div className="countdown" aria-label={`${d} days ${h} hours ${m} minutes ${s} seconds until the event`}>{[[d,'DAYS'],[h,'HRS'],[m,'MIN'],[s,'SEC']].map(([n,label],i)=><React.Fragment key={label}>{i>0&&<span className="count-colon">:</span>}<span className="count-cell"><strong>{String(n).padStart(2,'0')}</strong><small>{label}</small></span></React.Fragment>)}</div>}
-function NextEventBanner(){const {items,loading,error}=useEventData();const {openEvent}=useSite();const now=useClock();const next=items.find(e=>eventEnd(e).getTime()>now);return <div className="container"><div className="next-banner"><div className="next-icon"><Icon name="calendar" size={24}/></div><div className="next-copy"><span className="mini-label">NEXT ON THE CALENDAR</span>{next?<><h3>{next.summary||'Chapter event'}</h3><p>{displayEventDate(next)}{next.location?` · ${next.location}`:''}</p></>:<><h3>{loading?'Loading chapter events…':error?'Calendar temporarily unavailable':'The next chapter event is on its way.'}</h3><p>{!connectedCalendar?'Our Google Calendar can be connected when the site goes live.':'Follow us for new events and announcements.'}</p></>}</div><div className="next-right">{next&&!next.start?.date && eventStart(next).getTime()>now?<Countdown to={eventStart(next).getTime()}/>:next&&eventStart(next).getTime()<=now?<span className="event-live">EVENT IN PROGRESS</span>:<span className="next-coming">STAY CONNECTED</span>}{next?<button className="text-link" onClick={()=>openEvent(next)}>Event details <Icon name="arrow" size={16}/></button>:<a className="text-link" href={org.linkedin} target="_blank" rel="noreferrer">Follow our updates <Icon name="arrow" size={16}/></a>}</div></div></div>}
+function NextEventBanner(){const config=useConfig();const {items,loading,error}=useEventData();const {openEvent}=useSite();const now=useClock();const next=items.find(e=>eventEnd(e).getTime()>now);return <div className="container"><div className="next-banner"><div className="next-icon"><Icon name="calendar" size={24}/></div><div className="next-copy"><span className="mini-label">NEXT ON THE CALENDAR</span>{next?<><h3>{next.summary||'Chapter event'}</h3><p>{displayEventDate(next)}{next.location?` · ${next.location}`:''}</p></>:<><h3>{loading?'Loading chapter events…':error?'Calendar temporarily unavailable':'The next chapter event is on its way.'}</h3><p>{!connectedCalendar?'Our Google Calendar can be connected when the site goes live.':'Follow us for new events and announcements.'}</p></>}</div><div className="next-right">{next&&!next.start?.date && eventStart(next).getTime()>now?<Countdown to={eventStart(next).getTime()}/>:next&&eventStart(next).getTime()<=now?<span className="event-live">EVENT IN PROGRESS</span>:<span className="next-coming">STAY CONNECTED</span>}{next?<button className="text-link" onClick={()=>openEvent(next)}>Event details <Icon name="arrow" size={16}/></button>:<a className="text-link" href={config.linkedin} target="_blank" rel="noreferrer">Follow our updates <Icon name="arrow" size={16}/></a>}</div></div></div>}
 function SectionHeading({tag,title,description,right}){return <div className="section-heading"><div><span className="kicker"><span className="tiny-square"/>{tag}</span><h2>{title}</h2>{description&&<p>{description}</p>}</div>{right&&<div className="section-heading-right">{right}</div>}</div>}
 const defaultMissionCards = [
   { title: 'Learn & innovate', description: 'Seminars, workshops, and exposure to research at the leading edge of microelectronics.', icon: 'bolt' },
@@ -261,40 +320,37 @@ const defaultMissionCards = [
   { title: 'Grow & lead', description: 'Create opportunities for professional development and hands-on chapter leadership.', icon: 'layers' },
 ];
 export function AboutBlock({
-  blok,
-  eyebrow = '01 / ABOUT THE CHAPTER',
-  heading = 'Where curiosity meets innovation.',
-  description = org.mission,
-  pillars,
+  blok, eyebrow='01 / ABOUT THE CHAPTER',heading='Where curiosity meets innovation.',description=org.mission,
+  pillars,statementHeading='More than a student chapter.',statementHighlight='A launchpad for technical leadership.',
+  statementCaption='Established September 28, 2026 · IEEE EPS · Penn State',
+  focusTitle='OUR TECHNICAL FOCUS',focusTags,
+  showStatement=true,showFocus=true,
 }) {
-  const cmsCards = Array.isArray(pillars) ? pillars.filter(x => x?.component === 'mission_card') : [];
-  const cards = cmsCards.length ? cmsCards : defaultMissionCards;
-  return <section className="section about-section" id="about" {...(blok ? storyblokEditable(blok) : {})}>
+  const cards=Array.isArray(pillars) ? pillars.filter(x=>x?.component==='mission_card') : defaultMissionCards;
+  const labels=Array.isArray(focusTags) ? focusTags.map(x=>x.title).filter(Boolean) : org.focus;
+  return <section className="section about-section" id="about" {...(blok?storyblokEditable(blok):{})}>
     <div className="container">
       <SectionHeading tag={eyebrow} title={heading} description={description}/>
-      <div className="about-layout">
-        <div className="about-statement">
-          <span className="quote-mark">“</span>
-          <h3>More than a student chapter. <span>A launchpad for technical leadership.</span></h3>
-          <div className="about-rule"/>
-          <p>Established September 28, 2026 · IEEE EPS · Penn State</p>
-        </div>
+      <div className={'about-layout '+(!showStatement?'about-no-quote':'')}>
+        {showStatement && <div className="about-statement"><span className="quote-mark">“</span>
+          <h3>{statementHeading} <span>{statementHighlight}</span></h3>
+          <div className="about-rule"/><p>{statementCaption}</p>
+        </div>}
         <div className="pillar-grid">
-          {cards.map((card, index) => (
-            <div className="pillar" key={card._uid || index} {...(card._uid ? storyblokEditable(card) : {})}>
-              <span className="pillar-icon"><Icon name={['bolt', 'people', 'layers'].includes(card.icon) ? card.icon : 'layers'}/></span>
-              <h3>{card.title || 'Chapter initiative'}</h3>
-              <p>{card.description || ''}</p>
-            </div>
-          ))}
+          {cards.map((card,index)=><div className="pillar" key={card._uid||index}
+            {...(card._uid?storyblokEditable(card):{})}>
+            <span className="pillar-icon"><Icon name={['bolt','people','layers','globe','calendar','checkcircle'].includes(card.icon)?card.icon:'layers'}/></span>
+            <h3>{card.title||'Chapter initiative'}</h3><p>{card.description||''}</p>
+          </div>)}
         </div>
       </div>
-      <div className="focus-wrap"><span>OUR TECHNICAL FOCUS</span>
-        <div className="focus-list">{org.focus.map(f => <span key={f}>{f}</span>)}</div>
-      </div>
+      {showFocus && <div className="focus-wrap"><span>{focusTitle}</span>
+        <div className="focus-list">{labels.map((f,i)=><span key={i}>{f}</span>)}</div>
+      </div>}
     </div>
   </section>;
 }
+
 function EventCard({event}){const {openEvent}=useSite();return <button className="event-card" onClick={()=>openEvent(event)}><div className="event-card-date"><strong>{prettyDate(eventStart(event),{day:'numeric'})}</strong><span>{prettyDate(eventStart(event),{month:'short',year:'numeric'})}</span></div><div className="event-card-content"><span className="card-overline">IEEE EPS / UPCOMING</span><h3>{event.summary||'Chapter event'}</h3><p><Icon name="clock" size={15}/> {displayEventDate(event)}</p>{event.location&&<p><Icon name="pin" size={15}/> {event.location}</p>}</div><span className="event-card-arrow"><Icon name="arrow" size={18}/></span></button>}
 function CalendarBody({events,mode,cursor,sem,openEvent}){
   const today=nyDateKey(new Date());
@@ -306,51 +362,186 @@ function CalendarBody({events,mode,cursor,sem,openEvent}){
   if(mode==='week')return <div className="week-grid">{Array.from({length:7},(_,i)=>{const key=shiftDateKey(weekStart,i),d=dateForKey(key),es=events.filter(e=>eventDateKey(e)===key);return <div key={key} className={'week-column '+(key===today?'active':'')}><div className="week-header"><small>{['MON','TUE','WED','THU','FRI','SAT','SUN'][i]}</small><strong>{d.getDate()}</strong></div>{es.length?es.map(e=><button className="week-event" key={e.id} onClick={()=>openEvent(e)}><span>{e.summary}</span><small>{e.start?.date?'All day':prettyTime(eventStart(e))}</small></button>):<span className="no-week-events">—</span>}</div>})}</div>;
   const {start,end}=semesterBounds(sem),filtered=events.filter(e=>{const key=eventDateKey(e);return key>=start&&key<=end});return <div className="semester-list">{filtered.length?filtered.map(e=><button className="semester-row" key={e.id} onClick={()=>openEvent(e)}><span className="semester-date"><strong>{prettyDate(eventStart(e),{day:'2-digit'})}</strong><small>{prettyDate(eventStart(e),{month:'short'})}</small></span><span className="semester-info"><strong>{e.summary}</strong><small>{displayEventDate(e)} {e.location?` · ${e.location}`:''}</small></span><Icon name="chevron" size={17}/></button>):<div className="calendar-empty">No events have been published for {sem.term} {sem.year}.</div>}</div>
 }
-function EventCalendar({items}){const [mode,setMode]=useState('month');const [cursor,setCursor]=useState(()=>nyDateKey(new Date()));const [sem,setSem]=useState(()=>initialSemester());const {openEvent}=useSite();const today=nyDateKey(new Date());const [y,m]=cursor.split('-').map(Number);const label=mode==='month'?new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric'}).format(new Date(y,m-1,1)):mode==='week'?`${prettyDate(dateForKey(mondayKey(cursor)))} – ${prettyDate(dateForKey(shiftDateKey(mondayKey(cursor),6)),{year:'numeric'})}`:`${sem.term} ${sem.year}`;
+function EventCalendar({items,initialMode='month'}){const [mode,setMode]=useState(['month','week','semester'].includes(initialMode)?initialMode:'month');const [cursor,setCursor]=useState(()=>nyDateKey(new Date()));const [sem,setSem]=useState(()=>initialSemester());const {openEvent}=useSite();const today=nyDateKey(new Date());const [y,m]=cursor.split('-').map(Number);const label=mode==='month'?new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric'}).format(new Date(y,m-1,1)):mode==='week'?`${prettyDate(dateForKey(mondayKey(cursor)))} – ${prettyDate(dateForKey(shiftDateKey(mondayKey(cursor),6)),{year:'numeric'})}`:`${sem.term} ${sem.year}`;
  const shift=n=>{if(mode==='semester')setSem(s=>moveSemester(s,n));else if(mode==='week')setCursor(c=>shiftDateKey(c,7*n));else{let date=new Date(y,m-1+n,1);setCursor(`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-01`)}};
  return <div className="calendar-container"><div className="calendar-toolbar"><div className="calendar-title"><Icon name="calendar" size={18}/><strong>{label}</strong></div><div className="calendar-toolbar-actions"><div className="calendar-switch" role="group" aria-label="Calendar view">{['semester','month','week'].map(v=><button key={v} className={mode===v?'selected':''} onClick={()=>setMode(v)} aria-pressed={mode===v}>{v[0].toUpperCase()+v.slice(1)}</button>)}</div><div className="calendar-move"><button aria-label="Previous period" onClick={()=>shift(-1)}>‹</button><button className="today-button" onClick={()=>{setCursor(today);setSem(initialSemester(today))}}>Today</button><button aria-label="Next period" onClick={()=>shift(1)}>›</button></div></div></div><CalendarBody events={items} mode={mode} cursor={cursor} sem={sem} openEvent={openEvent}/><div className="calendar-footer"><span><span className="legend-dot"/> Chapter events · Times in Eastern Time</span>{calendarPublicUrl&&<a href={calendarPublicUrl} target="_blank" rel="noreferrer">Open in Google Calendar <Icon name="external" size={14}/></a>}</div></div>
 }
-export function EventsBlock({title='Something is always in motion.',description='Discover what’s happening, connect with the community, and never miss a chapter event.'}){const {items,loading,error}=useEventData();const now=Date.now();const upcoming=items.filter(e=>eventEnd(e).getTime()>now).slice(0,3);return <section className="section events-section" id="events"><div className="container"><SectionHeading tag="02 / EVENTS HUB" title={title} description={description} right={calendarPublicUrl?<a href={calendarPublicUrl} target="_blank" rel="noreferrer" className="text-link">Subscribe to calendar <Icon name="external" size={16}/></a>:null}/><div className="section-subtitle"><h3>Coming up</h3><span>UPCOMING EVENTS</span></div><div className="upcoming-grid">{loading?<div className="empty-events"><Icon name="clock" size={24}/><strong>Loading the latest events…</strong></div>:error?<div className="empty-events"><Icon name="calendar" size={24}/><strong>Calendar connection unavailable</strong><p>{error}. Please check the API configuration.</p></div>:upcoming.length?upcoming.map(e=><EventCard key={e.id} event={e}/>):<div className="empty-events"><span className="empty-icon"><Icon name="calendar" size={24}/></span><strong>No upcoming events announced yet</strong><p>New seminars, workshops, and networking opportunities will appear here automatically once published.</p><a href={org.linkedin} target="_blank" rel="noreferrer" className="text-link">Stay updated on LinkedIn <Icon name="arrow" size={15}/></a></div>}</div><div className="section-subtitle calendar-label"><h3>Chapter calendar</h3><span>YOUR SCHEDULE AT A GLANCE</span></div><EventCalendar items={items}/></div></section>}
-export function HighlightsBlock({title='Moments that move us forward.',description='A growing record of seminars, workshops, collaborations, and chapter milestones.',items=verifiedHighlights}){return <section className="section highlights-section" id="highlights"><div className="container"><SectionHeading tag="03 / COMMUNITY & MOMENTS" title={title} description={description}/>{items?.length?<div className="highlights-grid">{items.map((x,i)=><article key={x._uid||i} {...(x._uid?storyblokEditable(x):{})} className="highlight-card"><div className="highlight-image">{x.image?<img src={x.image} alt={x.title} loading="lazy"/>:<Icon name="layers" size={35}/>}</div><div className="highlight-copy"><span>{x.date||'CHAPTER EVENT'}</span><h3>{x.title}</h3><p>{x.description}</p>{x.link&&<a href={x.link} target="_blank" rel="noreferrer">View album <Icon name="external" size={14}/></a>}</div></article>)}</div>:<div className="empty-highlight"><div className="highlight-symbol"><Icon name="layers" size={30}/></div><div><h3>Our story is just beginning.</h3><p>As our chapter hosts events and initiatives, verified photos and highlights will appear in this space.</p></div><a href={org.linkedin} target="_blank" rel="noreferrer" className="text-link">Follow our progress <Icon name="arrow" size={16}/></a></div>}</div></section>}
-export function ArchiveBlock({title='Chapter event archive.'}) {
+export function EventsBlock({
+  title='Something is always in motion.',description='Discover what’s happening, connect with the community, and never miss a chapter event.',
+  eyebrow='02 / EVENTS HUB',upcomingTitle='Coming up',calendarTitle='Chapter calendar',
+  upcomingCount=3,initialView='month',showUpcoming=true,showCalendar=true
+}){
+  const {items,loading,error}=useEventData();const config=useConfig();
+  const upcoming=items.filter(e=>eventEnd(e).getTime()>Date.now()).slice(0,Math.min(6,Math.max(1,upcomingCount)));
+  return <section className="section events-section" id="events"><div className="container">
+    <SectionHeading tag={eyebrow} title={title} description={description}
+      right={calendarPublicUrl?<a href={calendarPublicUrl} target="_blank" rel="noreferrer" className="text-link">Subscribe to calendar <Icon name="external" size={16}/></a>:null}/>
+    {showUpcoming && <><div className="section-subtitle"><h3>{upcomingTitle}</h3><span>UPCOMING EVENTS</span></div>
+      <div className="upcoming-grid">
+        {loading?<div className="empty-events"><Icon name="clock" size={24}/><strong>Loading the latest events…</strong></div>:
+        error?<div className="empty-events"><Icon name="calendar" size={24}/><strong>Calendar connection unavailable</strong><p>{error}</p></div>:
+        upcoming.length?upcoming.map(e=><EventCard key={e.id} event={e}/>):
+        <div className="empty-events"><span className="empty-icon"><Icon name="calendar" size={24}/></span>
+          <strong>No upcoming events announced yet</strong>
+          <p>New seminars, workshops, and networking opportunities will appear here automatically once published.</p>
+          <a href={config.linkedin} target="_blank" rel="noreferrer" className="text-link">Stay updated on LinkedIn <Icon name="arrow" size={15}/></a>
+        </div>}
+      </div></>}
+    {showCalendar && <><div className="section-subtitle calendar-label"><h3>{calendarTitle}</h3><span>YOUR SCHEDULE AT A GLANCE</span></div>
+      <EventCalendar items={items} initialMode={initialView}/></>}
+  </div></section>;
+}
+
+function HighlightsBlock({
+  title='Moments that move us forward.',description='A growing record of seminars, workshops, collaborations, and chapter milestones.',
+  eyebrow='03 / COMMUNITY & MOMENTS',emptyTitle='Our story is just beginning.',
+  emptyDescription='As our chapter hosts events and initiatives, verified photos and highlights will appear in this space.',
+  items=verifiedHighlights
+}){
+  const config=useConfig();
+  const ordered=items; // Preserve Storyblok drag-and-drop card order.
+  return <section className="section highlights-section" id="highlights"><div className="container">
+    <SectionHeading tag={eyebrow} title={title} description={description}/>
+    {ordered.length?<div className="highlights-grid">
+      {ordered.map((x,i)=><article key={x._uid||i} {...(x._uid?storyblokEditable(x):{})} className="highlight-card">
+        <div className="highlight-image">{x.image?<img src={x.image} alt={x.title||'Chapter event'} loading="lazy"/>:<Icon name="layers" size={35}/>}</div>
+        <div className="highlight-copy"><span>{[x.featured?'FEATURED':null,x.category,x.date].filter(Boolean).join(' · ')||'CHAPTER EVENT'}</span>
+          <h3>{x.title}</h3><p>{x.description}</p>
+          {x.link&&<a href={x.link} target="_blank" rel="noreferrer">{x.link_text||'View album'} <Icon name="external" size={14}/></a>}
+        </div>
+      </article>)}
+    </div>:<div className="empty-highlight"><div className="highlight-symbol"><Icon name="layers" size={30}/></div>
+      <div><h3>{emptyTitle}</h3><p>{emptyDescription}</p></div>
+      <a href={config.linkedin} target="_blank" rel="noreferrer" className="text-link">Follow our progress <Icon name="arrow" size={16}/></a>
+    </div>}
+  </div></section>;
+}
+
+function ArchiveBlock({title='Chapter event archive.',eyebrow='EVENT HISTORY',emptyDescription='The archive will grow as the chapter hosts its first events.',maxItems=25,showSearch=true}) {
  const {items}=useEventData(); const {openEvent}=useSite();
  const [search,setSearch]=useState(''), [year,setYear]=useState('All');
  const history=useMemo(()=>items.filter(e=>eventEnd(e).getTime()<Date.now()).sort((a,b)=>eventStart(b)-eventStart(a)),[items]);
  const years=[...new Set(history.map(e=>nyDateKey(eventStart(e)).slice(0,4)))];
  const visible=history.filter(e=>(year==='All'||eventDateKey(e).startsWith(year)) && [e.summary,e.description,e.location].join(' ').toLowerCase().includes(search.toLowerCase()));
- return <section className="archive-section" id="archive"><div className="container"><div className="archive-heading"><div><span className="kicker"><span className="tiny-square"/>EVENT HISTORY</span><h3>{title}</h3></div><div className="archive-filters"><label className="sr-only" htmlFor="archive-search">Search past events</label><input id="archive-search" placeholder="Search events…" value={search} onChange={e=>setSearch(e.target.value)}/><label className="sr-only" htmlFor="archive-year">Filter event year</label><select id="archive-year" value={year} onChange={e=>setYear(e.target.value)}><option>All</option>{years.map(y=><option key={y}>{y}</option>)}</select></div></div>{visible.length?<div className="archive-rows">{visible.slice(0,25).map(e=><button key={e.id} className="archive-row" onClick={()=>openEvent(e)}><span className="archive-row-date">{prettyDate(eventStart(e),{month:'short',day:'numeric',year:'numeric'})}</span><strong>{e.summary}</strong><span>Details <Icon name="arrow" size={14}/></span></button>)}{visible.length>25&&<div className="archive-more">Showing 25 of {visible.length} matching past events. Refine the search to find more.</div>}</div>:<div className="archive-empty">{items.length?'No past events match the selected filters.':'The archive will grow as the chapter hosts its first events.'}</div>}</div></section>
+ return <section className="archive-section" id="archive"><div className="container"><div className="archive-heading"><div><span className="kicker"><span className="tiny-square"/>{eyebrow}</span><h3>{title}</h3></div>{showSearch&&<div className="archive-filters"><label className="sr-only" htmlFor="archive-search">Search past events</label><input id="archive-search" placeholder="Search events…" value={search} onChange={e=>setSearch(e.target.value)}/><label className="sr-only" htmlFor="archive-year">Filter event year</label><select id="archive-year" value={year} onChange={e=>setYear(e.target.value)}><option>All</option>{years.map(y=><option key={y}>{y}</option>)}</select></div>}</div>{visible.length?<div className="archive-rows">{visible.slice(0,maxItems).map(e=><button key={e.id} className="archive-row" onClick={()=>openEvent(e)}><span className="archive-row-date">{prettyDate(eventStart(e),{month:'short',day:'numeric',year:'numeric'})}</span><strong>{e.summary}</strong><span>Details <Icon name="arrow" size={14}/></span></button>)}{visible.length>maxItems&&<div className="archive-more">Showing {maxItems} of {visible.length} matching past events. Refine the search to find more.</div>}</div>:<div className="archive-empty">{items.length?'No past events match the selected filters.':emptyDescription}</div>}</div></section>
 }
-export function PartnersBlock({title='Build the future with us.',description='Partner with emerging engineering talent through technical talks, workshops, sponsorship, and shared opportunities to connect academia and industry.',partners=confirmedPartners}){const {openForm}=useSite();return <section className="section partners-section" id="partners"><div className="container"><div className="partner-panel"><div className="partner-panel-copy"><span className="kicker kicker-light"><span className="tiny-square"/>04 / PARTNERS & INDUSTRY</span><h2>{title}</h2><p>{description}</p><div className="partner-chips">{['Event sponsorship','Industry talks','Workshops','Research connections'].map(x=><span key={x}>{x}</span>)}</div><button className="button button-white" onClick={()=>openForm('sponsor')}>Explore collaboration <Icon name="arrow" size={18}/></button></div><div className="partner-feature"><span className="partner-plus">+</span><div className="partner-feature-inner"><span>COLLABORATION / 01</span><div className="partner-feature-visual"><div/><div/><div/><div/></div><strong>Better together.</strong><small>From classroom ideas to industry impact.</small></div></div></div>{partners?.length?<div className="partner-logo-panel"><span>OUR PARTNERS & SUPPORTERS</span><div className="partner-logos">{partners.map((p,i)=><a key={p._uid||i} {...(p._uid?storyblokEditable(p):{})} href={p.website || undefined} target="_blank" rel="noreferrer">{p.logo?<img src={p.logo} alt={p.name} loading="lazy"/>:p.name}</a>)}</div></div>:<div className="partners-empty"><span>Interested in supporting the chapter?</span><button onClick={()=>openForm('sponsor')}>Start a conversation <Icon name="arrow" size={15}/></button></div>}</div></section>}
+export function PartnersBlock({
+ title='Build the future with us.',description='Partner with emerging engineering talent through technical talks, workshops, sponsorship, and shared opportunities to connect academia and industry.',
+ eyebrow='04 / PARTNERS & INDUSTRY',buttonText='Explore collaboration',
+ featureHeading='Better together.',featureCaption='From classroom ideas to industry impact.',
+ offers,showVisual=true,partners=confirmedPartners
+}){
+ const {openForm}=useSite();
+ const chips=Array.isArray(offers)?offers.map(x=>x.title).filter(Boolean):['Event sponsorship','Industry talks','Workshops','Research connections'];
+ return <section className="section partners-section" id="partners"><div className="container">
+  <div className="partner-panel"><div className="partner-panel-copy">
+    <span className="kicker kicker-light"><span className="tiny-square"/>{eyebrow}</span>
+    <h2>{title}</h2><p>{description}</p><div className="partner-chips">{chips.map((x,i)=><span key={i}>{x}</span>)}</div>
+    {buttonText&&<button className="button button-white" onClick={()=>openForm('sponsor')}>{buttonText} <Icon name="arrow" size={18}/></button>}
+   </div>
+   {showVisual&&<div className="partner-feature"><span className="partner-plus">+</span>
+      <div className="partner-feature-inner"><span>COLLABORATION / 01</span><div className="partner-feature-visual"><div/><div/><div/><div/></div>
+      <strong>{featureHeading}</strong><small>{featureCaption}</small></div></div>}
+  </div>
+  {partners?.length?<div className="partner-logo-panel"><span>OUR PARTNERS & SUPPORTERS</span><div className="partner-logos">
+    {partners.map((p,i)=><a key={p._uid||i} {...(p._uid?storyblokEditable(p):{})}
+      href={p.website || undefined} target="_blank" rel="noreferrer" title={p.description||p.name}>
+      {p.logo?<img src={p.logo} alt={p.name} loading="lazy"/>:<strong>{p.name}</strong>}
+      {p.category&&<small className="partner-type">{p.category==='academic'?'Academic collaborator':p.category==='industry'?'Industry collaborator':'Sponsor'}</small>}
+    </a>)}
+   </div></div>:<div className="partners-empty"><span>Interested in supporting the chapter?</span>
+    <button onClick={()=>openForm('sponsor')}>Start a conversation <Icon name="arrow" size={15}/></button>
+   </div>}
+ </div></section>;
+}
+
 function Initials({name}){return <span className="portrait-initials">{name.split(' ').filter(x=>!['Md.','Hasan'].includes(x)).slice(0,2).map(x=>x[0]).join('')}</span>}
-export function TeamBlock({title='The people building our chapter.',description='Student leadership dedicated to launching an inclusive, forward-thinking technical community.',advisor=org.advisor,people=leadership}){return <section className="section team-section" id="team"><div className="container"><SectionHeading tag="05 / OUR TEAM" title={title} description={description}/><div className="advisor-bar"><div className="advisor-mark"><Icon name="layers" size={24}/></div><div><span>FACULTY ADVISOR</span><strong>{advisor}</strong></div><span className="advisor-badge">Penn State</span></div><div className="team-grid">{people?.map((p,i)=><div className="team-card" key={p._uid||i} {...(p._uid?storyblokEditable(p):{})}><div className="team-avatar">{p.photo?<img src={p.photo} alt={p.name} loading="lazy"/>:<Initials name={p.name}/>}</div><div className="team-text"><h3>{p.name}</h3><p>{p.role}</p></div>{p.linkedin&&<a href={p.linkedin} target="_blank" rel="noreferrer" className="team-link" aria-label={`${p.name} on LinkedIn`}><Icon name="linkedin" size={17}/></a>}</div>)}</div><p className="team-note">Interim founding leadership facilitates the chapter's initial activities pending the formal election process.</p></div></section>}
-export function JoinCalloutBlock({title='Find your place in what’s next.',description='Whether you are curious about advanced packaging or already working at its frontier, there is room for you here.',buttonText='Join the community'}){const {openForm}=useSite();return <div className="container"><div className="join-callout"><div><span className="kicker kicker-light">THE NEXT GENERATION STARTS HERE</span><h2>{title}</h2><p>{description}</p></div><button className="button button-white" onClick={()=>openForm('join')}>{buttonText} <Icon name="arrow" size={17}/></button></div></div>}
-export function ContactBlock({title='Let’s connect.',description="Questions, new ideas, speaking opportunities, partnerships—we'd love to hear from you.",items=faqs.map(([question,answer])=>({question,answer}))}){const {openForm}=useSite();const [expanded,setExpanded]=useState(-1);return <section className="section contact-section" id="contact"><div className="container"><SectionHeading tag="06 / GET IN TOUCH" title={title} description={description}/><div className="contact-layout"><div className="contact-panel"><span className="contact-small">REACH THE CHAPTER</span><a className="contact-email" href={`mailto:${org.email}`}>{org.email} <Icon name="arrow" size={19}/></a><p>IEEE EPS Penn State Student Chapter<br/>The Pennsylvania State University<br/>University Park, PA</p><div className="contact-actions"><button className="button" onClick={()=>openForm('contact')}>Send a message <Icon name="arrow" size={16}/></button><a href={org.linkedin} className="button button-soft" target="_blank" rel="noreferrer"><Icon name="linkedin" size={17}/> LinkedIn</a></div></div><div className="faq-panel"><div className="faq-heading"><h3>Frequently asked</h3><span>FAQ</span></div>{items.map(({question:q,answer:a,_uid},i)=><div className="faq-item" key={_uid||i} {...(_uid?storyblokEditable({_uid,component:"faq_item"}):{})}><button onClick={()=>setExpanded(v=>v===i?-1:i)} aria-expanded={expanded===i}><span>{q}</span><Icon name={expanded===i?'minus':'plus'} size={18}/></button>{expanded===i&&<p>{a}</p>}</div>)}</div></div></div></section>}
-function Footer(){return <footer className="footer"><div className="container footer-main"><Brand compact/><div className="footer-nav">{links.map(x=><a href={'#'+x.id} key={x.id}>{x.label}</a>)}</div><a className="footer-up" href="#home" aria-label="Back to top">↑</a></div><div className="container footer-bottom"><span>© {new Date().getFullYear()} IEEE EPS Penn State Student Chapter. Established September 28, 2026.</span><span>Independent student chapter website · University Park, PA</span></div></footer>}
-function Modal({kind,event,onClose}){const [status,setStatus]=useState({type:'',message:''}),[submitting,setSubmitting]=useState(false);useEffect(()=>{const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);document.body.classList.add('modal-open');return()=>{document.body.classList.remove('modal-open');window.removeEventListener('keydown',onKey)}},[onClose]);
+export function TeamBlock({
+  title='The people building our chapter.',description='Student leadership dedicated to launching an inclusive, forward-thinking technical community.',
+  eyebrow='05 / OUR TEAM',advisor=org.advisor,advisorLabel='FACULTY ADVISOR',
+  interimNote="Interim founding leadership facilitates the chapter's initial activities pending the formal election process.",
+  people=leadership
+}){
+  return <section className="section team-section" id="team"><div className="container">
+    <SectionHeading tag={eyebrow} title={title} description={description}/>
+    <div className="advisor-bar"><div className="advisor-mark"><Icon name="layers" size={24}/></div><div><span>{advisorLabel}</span><strong>{advisor}</strong></div><span className="advisor-badge">Penn State</span></div>
+    <div className="team-grid">{people?.map((p,i)=><div className="team-card" key={p._uid||i} {...(p._uid?storyblokEditable(p):{})}>
+      <div className="team-avatar">{p.photo?<img src={p.photo} alt={p.name} loading="lazy"/>:<Initials name={p.name}/>}</div>
+      <div className="team-text"><h3>{p.name}</h3><p>{p.role}</p>
+        {p.program&&<small className="team-program">{p.program}</small>}
+        {p.biography&&<p className="team-bio">{p.biography}</p>}
+      </div>{p.linkedin&&<a href={p.linkedin} target="_blank" rel="noreferrer" className="team-link" aria-label={`${p.name} on LinkedIn`}><Icon name="linkedin" size={17}/></a>}
+    </div>)}</div>
+    {interimNote&&<p className="team-note">{interimNote}</p>}
+  </div></section>;
+}
+
+function JoinCalloutBlock({
+ title='Find your place in what’s next.',description='Whether you are curious about advanced packaging or already working at its frontier, there is room for you here.',
+ eyebrow='THE NEXT GENERATION STARTS HERE',buttonText='Join the community',showButton=true
+}){
+ const {openForm}=useSite();return <div className="container"><div className="join-callout"><div>
+  <span className="kicker kicker-light">{eyebrow}</span><h2>{title}</h2><p>{description}</p></div>
+  {showButton&&<button className="button button-white" onClick={()=>openForm('join')}>{buttonText} <Icon name="arrow" size={17}/></button>}
+ </div></div>;
+}
+
+function ContactBlock({
+  title='Let’s connect.',description="Questions, new ideas, speaking opportunities, partnerships—we'd love to hear from you.",
+  eyebrow='06 / GET IN TOUCH',email,address,linkedin,contactButtonText='Send a message',
+  faqHeading='Frequently asked',showFaq=true,
+  items=faqs.map(([question,answer])=>({question,answer}))
+}){
+ const {openForm}=useSite();const [expanded,setExpanded]=useState(-1);const config=useConfig();
+ const displayedEmail=email||config.email;
+ const linkedIn=linkedin||config.linkedin;
+ const contactAddress=address||'IEEE EPS Penn State Student Chapter\nThe Pennsylvania State University\nUniversity Park, PA';
+ return <section className="section contact-section" id="contact"><div className="container">
+  <SectionHeading tag={eyebrow} title={title} description={description}/>
+  <div className="contact-layout"><div className="contact-panel"><span className="contact-small">REACH THE CHAPTER</span>
+   <a className="contact-email" href={`mailto:${displayedEmail}`}>{displayedEmail} <Icon name="arrow" size={19}/></a>
+   <p className="cms-preserve-lines">{contactAddress}</p>
+   <div className="contact-actions"><button className="button" onClick={()=>openForm('contact')}>{contactButtonText} <Icon name="arrow" size={16}/></button>
+     {linkedIn&&<a href={linkedIn} className="button button-soft" target="_blank" rel="noreferrer"><Icon name="linkedin" size={17}/> LinkedIn</a>}
+   </div></div>
+   {showFaq&&<div className="faq-panel"><div className="faq-heading"><h3>{faqHeading}</h3><span>FAQ</span></div>
+     {items.map(({question:q,answer:a,_uid,component},i)=><div className="faq-item" key={_uid||i}
+       {...(_uid?storyblokEditable({_uid,component:component||'faq_item'}):{})}>
+       <button onClick={()=>setExpanded(v=>v===i?-1:i)} aria-expanded={expanded===i}><span>{q}</span><Icon name={expanded===i?'minus':'plus'} size={18}/></button>
+       {expanded===i&&<p>{a}</p>}
+     </div>)}
+   </div>}
+  </div>
+ </div></section>;
+}
+
+function Footer(){const config=useConfig();return <footer className="footer"><div className="container footer-main"><Brand compact/><div className="footer-nav">{links.map(x=><a href={'#'+x.id} key={x.id}>{x.label}</a>)}</div><a className="footer-up" href="#home" aria-label="Back to top">↑</a></div><div className="container footer-bottom"><span>© {new Date().getFullYear()} IEEE EPS Penn State Student Chapter. Established September 28, 2026.</span><span>Independent student chapter website · University Park, PA</span></div></footer>}
+function Modal({kind,event,onClose}){const config=useConfig();const [status,setStatus]=useState({type:'',message:''}),[submitting,setSubmitting]=useState(false);useEffect(()=>{const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);document.body.classList.add('modal-open');return()=>{document.body.classList.remove('modal-open');window.removeEventListener('keydown',onKey)}},[onClose]);
  const names={contact:'Send us a message',sponsor:'Explore a partnership',join:'Join the community'};const desc={contact:'General inquiries, event suggestions, or questions about the chapter.',sponsor:'Tell us a little about the opportunity you have in mind.',join:'Express your interest in IEEE EPS Penn State activities.'};const ids={contact:import.meta.env.VITE_FORMSPREE_CONTACT_ID,sponsor:import.meta.env.VITE_FORMSPREE_SPONSOR_ID,join:import.meta.env.VITE_FORMSPREE_JOIN_ID};const id=ids[kind];
  async function submit(e){e.preventDefault();if(!id){setStatus({type:'error',message:'This form is not connected yet. Please email the chapter directly.'});return}setSubmitting(true);setStatus({type:'',message:''});try{const response=await fetch(`https://formspree.io/f/${encodeURIComponent(id)}`,{method:'POST',body:new FormData(e.currentTarget),headers:{Accept:'application/json'}});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.errors?.map(e=>e.message).join(' ')||'Submission failed');e.currentTarget.reset();setStatus({type:'success',message:'Thanks! Your message has been submitted successfully.'})}catch(e){setStatus({type:'error',message:e.message||'Something went wrong. Please try again.'})}finally{setSubmitting(false)}}
  if(event)return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label="Event details" onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button><span className="kicker"><span className="tiny-square"/>CHAPTER EVENT</span><h2>{event.summary||'Chapter event'}</h2><div className="event-detail-row"><Icon name="calendar"/> {displayEventDate(event)}</div>{event.location&&<div className="event-detail-row"><Icon name="pin"/> {event.location}</div>}{event.description&&<p className="modal-description">{event.description.replace(/<[^>]*>/g,'').slice(0,2500)}</p>}<div className="modal-actions">{event.htmlLink&&<a className="button" href={event.htmlLink} target="_blank" rel="noreferrer">Open calendar event <Icon name="external" size={16}/></a>}<button className="button button-soft" onClick={onClose}>Close</button></div></div></div>;
- return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label={names[kind]} onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button><span className="kicker"><span className="tiny-square"/>CONNECT WITH IEEE EPS</span><h2>{names[kind]}</h2><p className="modal-intro">{desc[kind]}</p>{status.type==='success'?<div className="status-message success"><Icon name="checkcircle"/> {status.message}</div>:<form className="chapter-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" autoComplete="name"/></label><label>Email address<input required name="email" type="email" placeholder="name@example.com" autoComplete="email"/></label>{kind==='sponsor'&&<><label>Organization<input required name="organization" placeholder="Company or institution"/></label><label>Inquiry type<select name="inquiry_type" defaultValue="Industry collaboration"><option>Industry collaboration</option><option>Event sponsorship</option><option>Technical talk / speaker</option><option>Workshop</option><option>Other</option></select></label></>}{kind==='join'&&<><label>Academic program<input name="academic_program" placeholder="e.g. PhD Electrical Engineering"/></label><label>Technical interests<input name="interests" placeholder="Packaging, photonics, reliability…"/></label></>}{kind==='contact'&&<label>Subject<input required name="subject" placeholder="How can we help?"/></label>}{kind!=='join'&&<label>Message<textarea required name="message" rows="4" placeholder="Share a few details…"/></label>}<input type="hidden" name="source" value="IEEE EPS Penn State website"/><button className="button submit-button" disabled={submitting} type="submit">{submitting?'Sending…':'Submit inquiry'} <Icon name="arrow" size={16}/></button>{kind==='join'&&<small>Expressing interest does not create or replace official IEEE membership.</small>}{!id&&<p className="form-setup-note">Online submissions are awaiting Formspree connection. For now, contact <a href={`mailto:${org.email}`}>{org.email}</a>.</p>}{status.type==='error'&&<div role="alert" className="status-message error">{status.message}</div>}</form>}</div></div>;
+ return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label={names[kind]} onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button><span className="kicker"><span className="tiny-square"/>CONNECT WITH IEEE EPS</span><h2>{names[kind]}</h2><p className="modal-intro">{desc[kind]}</p>{status.type==='success'?<div className="status-message success"><Icon name="checkcircle"/> {status.message}</div>:<form className="chapter-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" autoComplete="name"/></label><label>Email address<input required name="email" type="email" placeholder="name@example.com" autoComplete="email"/></label>{kind==='sponsor'&&<><label>Organization<input required name="organization" placeholder="Company or institution"/></label><label>Inquiry type<select name="inquiry_type" defaultValue="Industry collaboration"><option>Industry collaboration</option><option>Event sponsorship</option><option>Technical talk / speaker</option><option>Workshop</option><option>Other</option></select></label></>}{kind==='join'&&<><label>Academic program<input name="academic_program" placeholder="e.g. PhD Electrical Engineering"/></label><label>Technical interests<input name="interests" placeholder="Packaging, photonics, reliability…"/></label></>}{kind==='contact'&&<label>Subject<input required name="subject" placeholder="How can we help?"/></label>}{kind!=='join'&&<label>Message<textarea required name="message" rows="4" placeholder="Share a few details…"/></label>}<input type="hidden" name="source" value="IEEE EPS Penn State website"/><button className="button submit-button" disabled={submitting} type="submit">{submitting?'Sending…':'Submit inquiry'} <Icon name="arrow" size={16}/></button>{kind==='join'&&<small>Expressing interest does not create or replace official IEEE membership.</small>}{!id&&<p className="form-setup-note">Online submissions are awaiting Formspree connection. For now, contact <a href={`mailto:${config.email}`}>{config.email}</a>.</p>}{status.type==='error'&&<div role="alert" className="status-message error">{status.message}</div>}</form>}</div></div>;
 }
 // The rest of the site remains the original working design, independently of Storyblok.
-function FallbackHome() { return <HomepageSections/>; }
+function FallbackHome({onSettingsChange}) { return <HomepageSections onSettingsChange={onSettingsChange}/>; }
 function App() {
   const [overlay, setOverlay] = useState(null);
+  const [siteSettings,setSiteSettings]=useState({email:org.email,linkedin:org.linkedin});
   const eventData = useEvents();
   const context = useMemo(() => ({
     openForm: kind => setOverlay({ kind }),
     openEvent: event => setOverlay({ event }),
   }), []);
-  return <SiteContext.Provider value={context}>
+  return <SiteConfigContext.Provider value={siteSettings}><SiteContext.Provider value={context}>
     <EventContext.Provider value={eventData}>
       <a className="skip-link" href="#main">Skip to main content</a>
       <Header />
-      <main id="main"><FallbackHome /></main>
+      <main id="main"><FallbackHome onSettingsChange={setSiteSettings}/></main>
       <Footer />
       {overlay && <Modal key={overlay.kind || overlay.event?.id}
         kind={overlay.kind} event={overlay.event} onClose={() => setOverlay(null)} />}
     </EventContext.Provider>
-  </SiteContext.Provider>;
+  </SiteContext.Provider></SiteConfigContext.Provider>;
 }
 
 createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);

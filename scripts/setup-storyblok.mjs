@@ -1,106 +1,123 @@
 /**
- * ONE-TIME, NON-DESTRUCTIVE CMS setup for IEEE EPS Penn State.
- * GitHub Actions secret STORYBLOK_MANAGEMENT_TOKEN must be provided.
- * Does not publish; inspect the draft Home story in Storyblok before clicking Publish.
+ * IEEE EPS Penn State – Visual CMS v5 non-destructive migration.
+ * Triggered on push by .github/workflows/storyblok-v5.yml.
+ * Requires GitHub Actions secret STORYBLOK_MANAGEMENT_TOKEN.
+ * Updates schema (additive), enriches missing optional fields, and SAVES A DRAFT.
+ * Never publishes. Existing story blocks, data, ordering and nested card contents
+ * are preserved. Re-running is safe and idempotent.
  */
-import {randomUUID} from 'node:crypto';
-import {components, sectionOrder} from './storyblok-schema.mjs';
-import {organization, leadership, faqs} from '../src/content.js';
+import { randomUUID } from 'node:crypto';
+import { components, sectionNames } from './storyblok-schema.mjs';
+import { organization, leadership, faqs } from '../src/content.js';
 
 const token=process.env.STORYBLOK_MANAGEMENT_TOKEN;
 const space=process.env.STORYBLOK_SPACE_ID || '296068433309933';
-const storyId=process.env.STORYBLOK_HOME_STORY_ID || '233495306517377';
-if (!token) throw new Error('Missing STORYBLOK_MANAGEMENT_TOKEN Actions secret.');
-if (!/^\d+$/.test(space)||!/^\d+$/.test(storyId)) throw new Error('Storyblok Space ID/Story ID must be numeric.');
-const base=`https://mapi.storyblok.com/v1/spaces/${space}`;
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function request(path,{method='GET',data}={}){
-  const url=base+path;
-  for (let attempt=0;attempt<5;attempt++) {
-    const response=await fetch(url,{method,headers:{Authorization:token,'Content-Type':'application/json',Accept:'application/json'},
-      body:data?JSON.stringify(data):undefined});
-    if (response.status===429 || response.status>=500) { if(attempt<4){await sleep(1000*Math.pow(2,attempt));continue;} }
-    const raw=await response.text();let json={};try{json=raw?JSON.parse(raw):{};}catch{}
-    if (!response.ok) throw new Error(`${method} ${path} failed (HTTP ${response.status}): ${String(json.error||json.message||raw).slice(0,380)}`);
-    await sleep(370);
-    return json;
-  }
-  throw new Error(`Storyblok API retry limit reached: ${path}`);
-}
-const uid=()=>randomUUID();
-const block=(component,props={})=>({_uid:uid(),component,...props});
-const defaults={
-  hero:()=>block('hero',{
-    eyebrow:'IEEE ELECTRONICS PACKAGING SOCIETY',headline:'Engineering',highlight:'what’s next.',
-    description:'Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.',
-    primary_button_text:'Explore events',primary_button_url:'#events',secondary_button_text:'Get involved',secondary_button_url:'#join'
-  }),
-  about_section:()=>block('about_section',{
-    eyebrow:'01 / ABOUT THE CHAPTER',heading:'Where curiosity meets innovation.',description:organization.mission,
-    pillars:[
-      block('mission_card',{title:'Learn & innovate',description:'Seminars, workshops, and exposure to research at the leading edge of microelectronics.',icon:'bolt'}),
-      block('mission_card',{title:'Connect & collaborate',description:'Build bridges between students, academic research, and the semiconductor industry.',icon:'people'}),
-      block('mission_card',{title:'Grow & lead',description:'Create opportunities for professional development and hands-on chapter leadership.',icon:'layers'})
-    ]
-  }),
-  events_section:()=>block('events_section',{title:'Something is always in motion.',description:'Discover what’s happening, connect with the community, and never miss a chapter event.'}),
-  highlights_section:()=>block('highlights_section',{title:'Moments that move us forward.',description:'A growing record of seminars, workshops, collaborations, and chapter milestones.',items:[]}),
-  archive_section:()=>block('archive_section',{title:'Chapter event archive.'}),
-  partners_section:()=>block('partners_section',{title:'Build the future with us.',description:'Partner with emerging engineering talent through technical talks, workshops, sponsorship, and shared opportunities to connect academia and industry.',partners:[]}),
-  team_section:()=>block('team_section',{
-    title:'The people building our chapter.',description:'Student leadership dedicated to launching an inclusive, forward-thinking technical community.',
-    advisor:organization.advisor,
-    people:leadership.map(person=>block('team_member',{name:person.name,role:person.role,
-      ...(person.photo?{photo:person.photo}:{}),...(person.linkedin?{linkedin:person.linkedin}:{})}))
-  }),
-  join_section:()=>block('join_section',{title:'Find your place in what’s next.',description:'Whether you are curious about advanced packaging or already working at its frontier, there is room for you here.',button_text:'Join the community'}),
-  contact_section:()=>block('contact_section',{title:'Let’s connect.',description:'Questions, new ideas, speaking opportunities, partnerships—we’d love to hear from you.',faqs:faqs.map(([question,answer])=>block('faq_item',{question,answer}))})
-};
-
-console.log('Checking existing components and preserving existing schema fields…');
-const listing=await request('/components/');
-const existing=new Map((listing.components||[]).map(c=>[c.name,c]));
-for (const desired of components){
-  const curr=existing.get(desired.name);
-  if(curr){
-    const merged={...curr, schema:{...curr.schema}};
-    // Merge missing fields and tighten the top-level/nested field allow-lists;
-    // do not overwrite user-defined text, options, field display settings, or data.
-    for(const [key,settings] of Object.entries(desired.schema)){
-      if(!merged.schema[key]) merged.schema[key]=settings;
-      else if(settings.type==='bloks') merged.schema[key]={...merged.schema[key],restrict_components:true,
-        component_whitelist:settings.component_whitelist};
+const home=process.env.STORYBLOK_HOME_STORY_ID || '233495306517377';
+if (!token) throw Error('MISSING ACTIONS SECRET: STORYBLOK_MANAGEMENT_TOKEN. See README: Step 1.');
+if (!/^\d+$/.test(space) || !/^\d+$/.test(home)) throw Error('Space ID and Home story ID must be numeric.');
+const BASE=`https://mapi.storyblok.com/v1/spaces/${space}`;
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function api(path,method='GET',data=null){
+  for(let n=0;n<5;n++){
+    const r=await fetch(BASE+path,{
+      method,headers:{Authorization:token,'Content-Type':'application/json',Accept:'application/json'},
+      body:data?JSON.stringify(data):undefined
+    });
+    const raw=await r.text();let j={};try{j=raw?JSON.parse(raw):{}}catch{}
+    if(!r.ok){
+      if(n<4 && (r.status===429||r.status>=500)){await pause(700*2**n);continue;}
+      throw Error(`Storyblok ${method} ${path} failed: HTTP ${r.status}: ${String(j.error||j.message||raw).slice(0,300)}`);
     }
-    await request(`/components/${curr.id}`,{method:'PUT',data:{component:{
-      name:curr.name,id:curr.id,display_name:curr.display_name||desired.display_name,
-      is_root:curr.is_root,is_nestable:curr.is_nestable,schema:merged.schema
-    }}});
-    console.log('Updated fields (preserved existing):',desired.name);
-  } else {
-    await request('/components/',{method:'POST',data:{component:desired}});
+    await pause(350);
+    return j;
+  }
+  throw Error('API retry exhausted');
+}
+const mk=(component,fields={})=>({_uid:randomUUID(),component,...fields});
+const textItems=values=>values.map(title=>mk('focus_tag',{title}));
+const offers=['Event sponsorship','Industry talks','Hands-on workshops','Research connections'].map(title=>mk('partner_offer',{title}));
+const pillarDefaults=[
+ mk('mission_card',{title:'Learn & innovate',description:'Seminars, workshops, and exposure to research at the leading edge of microelectronics.',icon:'bolt'}),
+ mk('mission_card',{title:'Connect & collaborate',description:'Build bridges between students, academic research, and the semiconductor industry.',icon:'people'}),
+ mk('mission_card',{title:'Grow & lead',description:'Create opportunities for professional development and hands-on chapter leadership.',icon:'layers'})
+];
+const defaultFields={
+ hero:{
+  eyebrow:'IEEE ELECTRONICS PACKAGING SOCIETY',headline:'Engineering',highlight:'what’s next.',
+  description:'Connecting the next generation of engineers, researchers, and industry leaders to advance semiconductor packaging and microelectronics.',
+  primary_button_text:'Explore events',primary_button_url:'#events',secondary_button_text:'Get involved',secondary_button_url:'#join',
+  illustration_mode:'circuit',show_next_event:true,badge_text:'OFFICIALLY EST. 09.28.2026',location_text:'University Park, Pennsylvania'
+ },
+ about_section:{
+  eyebrow:'01 / ABOUT THE CHAPTER',heading:'Where curiosity meets innovation.',description:organization.mission,
+  pillars:pillarDefaults,statement_heading:'More than a student chapter.',statement_highlight:'A launchpad for technical leadership.',
+  statement_caption:'Established September 28, 2026 · IEEE EPS · Penn State',focus_title:'OUR TECHNICAL FOCUS',
+  focus_tags:textItems(organization.focus),show_statement:true,show_focus:true
+ },
+ events_section:{title:'Something is always in motion.',description:'Discover what’s happening, connect with the community, and never miss a chapter event.',eyebrow:'02 / EVENTS HUB',upcoming_title:'Coming up',calendar_title:'Chapter calendar',upcoming_count:'3',initial_view:'month',show_upcoming:true,show_calendar:true},
+ highlights_section:{title:'Moments that move us forward.',description:'A growing record of seminars, workshops, collaborations, and chapter milestones.',eyebrow:'03 / COMMUNITY & MOMENTS',items:[],empty_title:'Our story is just beginning.',empty_description:'As our chapter hosts events and initiatives, verified photos and highlights will appear in this space.'},
+ archive_section:{title:'Chapter event archive.',eyebrow:'EVENT HISTORY',empty_description:'The archive will grow as the chapter hosts its first events.',max_items:'25',show_search:true},
+ partners_section:{title:'Build the future with us.',description:'Partner with emerging engineering talent through technical talks, workshops, sponsorship, and shared opportunities to connect academia and industry.',eyebrow:'04 / PARTNERS & INDUSTRY',button_text:'Explore collaboration',feature_heading:'Better together.',feature_caption:'From classroom ideas to industry impact.',offers,partners:[],show_visual:true},
+ team_section:{title:'The people building our chapter.',description:'Student leadership dedicated to launching an inclusive, forward-thinking technical community.',eyebrow:'05 / OUR TEAM',advisor:organization.advisor,advisor_label:'FACULTY ADVISOR',interim_note:"Interim founding leadership facilitates the chapter's initial activities pending the formal election process.",people:leadership.map(p=>mk('team_member',{name:p.name,role:p.role}))},
+ join_section:{title:'Find your place in what’s next.',description:'Whether you are curious about advanced packaging or already working at its frontier, there is room for you here.',eyebrow:'THE NEXT GENERATION STARTS HERE',button_text:'Join the community',show_button:true},
+ contact_section:{title:'Let’s connect.',description:'Questions, new ideas, speaking opportunities, partnerships—we’d love to hear from you.',eyebrow:'06 / GET IN TOUCH',email:'',linkedin:'',address:'IEEE EPS Penn State Student Chapter\nThe Pennsylvania State University\nUniversity Park, PA',contact_button_text:'Send a message',faq_heading:'Frequently asked',faqs:faqs.map(([question,answer])=>mk('faq_item',{question,answer})),show_faq:true},
+};
+const appearance={visible:true,tone:'default',spacing:'standard',heading_alignment:'left',layout:'auto'};
+function enrich(obj){
+  const current={...obj};
+  if(sectionNames.includes(current.component)) {
+    for (const [key,val] of Object.entries({...defaultFields[current.component],...appearance})){
+      // Missing fields only; never alter intentional blank strings, false booleans or empty collections.
+      if(current[key]===undefined)current[key]=structuredClone(val);
+    }
+  }
+  return current;
+}
+console.log('v5 migration: loading Storyblok component definitions');
+const listing=await api('/components/');
+const existing=new Map((listing.components||[]).map(c=>[c.name,c]));
+for(const desired of components){
+  const old=existing.get(desired.name);
+  if(old){
+    const schema={...old.schema};
+    for(const [field,definition] of Object.entries(desired.schema)){
+      if(!schema[field])schema[field]=definition;
+      else if(definition.type==='bloks'){
+        schema[field]={...schema[field],restrict_components:true,component_whitelist:definition.component_whitelist};
+      } else if(definition.type==='option' && Array.isArray(schema[field].options)){
+        const merged=[...schema[field].options];
+        for(const next of definition.options||[]){if(!merged.some(old=>old.value===next.value))merged.push(next);}
+        schema[field]={...schema[field],options:merged};
+      }
+      // Refresh editor-facing labels without changing any existing story data.
+      schema[field]={...schema[field],display_name:definition.display_name||schema[field].display_name};
+    }
+    await api(`/components/${old.id}`,'PUT',{component:{id:old.id,name:old.name,
+      display_name:desired.display_name,is_root:old.is_root,is_nestable:old.is_nestable,schema}});
+    console.log('Extended:',desired.name);
+  }else{
+    await api('/components/','POST',{component:desired});
     console.log('Created:',desired.name);
   }
 }
-console.log('Reading the existing Home story (draft) before appending new sections…');
-const response=await request(`/stories/${storyId}`);
-const story=response.story;
-if(!story || story.slug!=='home' || story.content?.component!=='page'){
-  throw new Error('This is not the Home story of content type page. Nothing was written to the story.');
+console.log('Loading existing Home draft and preserving block order and user content');
+const j=await api(`/stories/${home}`);
+const story=j.story;
+if(story?.slug!=='home'||story?.content?.component!=='page'||!Array.isArray(story.content.body)){
+  throw Error('The story is not the expected Home page. No story changes were written.');
 }
-const original=Array.isArray(story.content.body)?story.content.body:[];
-const byType=new Map(original.map(b=>[b.component,b]));
-const merged=sectionOrder.map(type=>{
-  const present=byType.get(type);
-  if(!present)return defaults[type]();
-  if(type==='about_section' && !Array.isArray(present.pillars)) return {...present,pillars:defaults.about_section().pillars};
-  if(type==='team_section' && !Array.isArray(present.people)) return {...present,people:defaults.team_section().people};
-  if(type==='contact_section' && !Array.isArray(present.faqs)) return {...present,faqs:defaults.contact_section().faqs};
-  if(type==='partners_section' && !Array.isArray(present.partners)) return {...present,partners:[]};
-  if(type==='highlights_section' && !Array.isArray(present.items)) return {...present,items:[]};
-  return present;
-});
-const additional=original.filter(b=>!sectionOrder.includes(b.component));
-const next={...story.content,body:[...merged,...additional],full_cms_layout:true};
-await request(`/stories/${story.id}`,{method:'PUT',data:{publish:false,story:{id:story.id,name:story.name,slug:story.slug,content:next}}});
-console.log('Saved Storyblok Home DRAFT with sections:',merged.map(x=>x.component).join(', '));
-console.log('DONE — Review Storyblok > Content > Home, verify leadership, then Publish when the new GitHub version is live.');
+const content=structuredClone(story.content);
+const original=content.body;
+const next=original.map(enrich);
+for(const name of sectionNames){
+  if(!next.some(b=>b.component===name))next.push(enrich(mk(name)));
+}
+content.body=next;
+for(const [k,v] of Object.entries({
+  full_cms_layout:true,site_theme:'ieee',site_density:'compact',site_width:'standard',
+  contact_email:organization.email,linkedin_url:organization.linkedin
+})) if(content[k]===undefined) content[k]=v;
+// Explicitly save a DRAFT — do not change published homepage until editor reviews it.
+await api(`/stories/${story.id}`,'PUT',{publish:false,story:{id:story.id,name:story.name,slug:story.slug,content}});
+console.log(`SAVED DRAFT: ${next.length} sections, ${components.length} schemas; public website not published.`);
+console.log('Open Storyblok → Content → Home → review, then Save → Publish.');
