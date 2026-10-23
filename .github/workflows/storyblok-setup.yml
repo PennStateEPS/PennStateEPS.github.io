@@ -1,0 +1,22 @@
+name: Configure Storyblok CMS (one time)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Create CMS components and draft the complete homepage
+        env:
+          STORYBLOK_MANAGEMENT_TOKEN: ${{ secrets.STORYBLOK_MANAGEMENT_TOKEN }}
+          STORYBLOK_SPACE_ID: '296068433309933'
+          STORYBLOK_HOME_STORY_ID: '233495306517377'
+        run: node scripts/setup-storyblok.mjs
