@@ -127,4 +127,8 @@ For errors, check the failing GitHub Actions job first. The website's `?cmsdebug
 
 Established September 28, 2026. The chapter supports technical learning, collaboration, and professional development in semiconductor packaging, heterogeneous integration, microelectronics, and related fields.
 
-The website is maintained for the IEEE EPS Penn State Student Chapter. IEEE and Penn State names and marks belong to their respective owners.
+The website is maintained for the IEEE EPS Student Branch Chapter at Penn State. IEEE and Penn State names and marks belong to their respective owners.
+
+## Developed By
+
+Md Rayid Hasan Mojumder, Founding Chair, IEEE EPS Student Branch Chapter at Penn State
