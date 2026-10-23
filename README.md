@@ -1,4 +1,4 @@
-# IEEE EPS Penn State Student Chapter
+# IEEE EPS Student Branch Chapter at Penn State 
 
 Website: **https://pennstateeps.github.io/**  
 Contact: **psu.ieee.eps@gmail.com**  
