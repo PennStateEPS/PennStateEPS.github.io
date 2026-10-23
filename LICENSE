@@ -1,0 +1,119 @@
+IEEE EPS PENN STATE WEBSITE
+NON-COMMERCIAL USE AND ATTRIBUTION LICENSE — VERSION 1.0
+
+Copyright (c) 2026 Rayid Mojumder, for original contributions
+Originally developed for the IEEE EPS Penn State Student Chapter.
+
+Project: https://github.com/PennStateEPS/PennStateEPS.github.io
+Original website: https://pennstateeps.github.io/
+Contact for additional permissions: psu.ieee.eps@gmail.com
+
+1. SCOPE
+
+This License applies to the original website source code, original layouts,
+and original design materials in this repository, but only to the extent
+that the copyright holder has the right to license those materials
+(collectively, the "Project"). Third-party materials are excluded as
+explained in Section 5.
+
+2. PERMISSION FOR NON-COMMERCIAL USE
+
+Subject to this License, you are granted a worldwide, royalty-free,
+non-exclusive permission to download, copy, run, study, adapt, modify,
+publicly display, and redistribute the Project and your adaptations solely
+for Non-Commercial Purposes.
+
+"Non-Commercial Purposes" means uses not primarily intended for or
+directed toward commercial advantage or monetary compensation. Examples
+include personal projects, educational demonstrations, student
+organizations, academic projects, and community or nonprofit websites
+operated on a non-commercial basis.
+
+Selling the Project or adaptations; offering them as a paid product,
+template, or service; using them as part of paid website development for
+clients; or operating a commercial website with them requires separate
+written permission from the copyright holder. An organization's nonprofit
+status does not, by itself, determine whether a particular use is
+non-commercial.
+
+3. REQUIRED ATTRIBUTION
+
+Every redistribution of the Project or an adaptation must:
+
+(a) Retain this LICENSE file and any existing copyright and attribution
+    notices in the source-code distribution.
+
+(b) Clearly acknowledge both the IEEE EPS Penn State Student Chapter and
+    the website's original developer, Rayid Mojumder.
+
+(c) State whether material modifications have been made, without implying
+    that the original developer or chapter endorses those modifications.
+
+If you publish a website built substantially from the Project, provide a
+visible, reasonably accessible credit in its footer, About page, or
+Credits page. The following wording satisfies the attribution requirement:
+
+    Based on the IEEE EPS Penn State Student Chapter website,
+    originally developed by Rayid Mojumder.
+    https://pennstateeps.github.io/
+
+The credit may be adapted to match the site's style, provided both names
+and the original project link remain clear and accessible. Attribution
+does not grant any right to claim IEEE, Penn State, or chapter endorsement.
+
+4. SHARING MODIFICATIONS
+
+You may distribute modified versions for Non-Commercial Purposes only if
+you retain this License, preserve the attribution required by Section 3,
+and give recipients the same non-commercial permissions for the original
+Project materials. Clearly identify modifications you have made.
+
+You are not required to publish private changes, but if you redistribute
+source code that includes the Project, include this License with it.
+
+5. EXCLUDED MATERIALS AND THIRD-PARTY RIGHTS
+
+This License does not grant permission to use, copy, or redistribute:
+
+- IEEE, IEEE Electronics Packaging Society, Penn State, university, or
+  chapter logos, trademarks, service marks, or official insignia;
+- Third-party photographs, illustrations, icons, fonts, videos, or other
+  assets unless separately licensed for the proposed use;
+- Third-party software packages and dependencies beyond the permissions
+  provided in their respective licenses;
+- Personal information, submitted form data, private API credentials,
+  or content owned by other parties.
+
+Such materials remain subject to their owners' terms and permissions.
+Using the Project does not establish affiliation with or approval by
+IEEE, Penn State, or the IEEE EPS Penn State Student Chapter.
+
+6. COMMERCIAL PERMISSION
+
+Commercial use is not authorized by this License. To request a separate
+commercial license or an exception, contact the copyright holder via
+psu.ieee.eps@gmail.com. Permission must be expressly granted in writing
+by a party authorized to grant it.
+
+7. TERMINATION
+
+Your permissions under this License terminate automatically if you fail
+to comply with its conditions. They are reinstated if you cure the
+violation within 30 days after becoming aware of it, unless the copyright
+holder has already notified you otherwise in writing. A separate written
+agreement may grant additional rights.
+
+8. NO WARRANTY OR LIABILITY
+
+THE PROJECT IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED
+BY LAW, THE COPYRIGHT HOLDER AND CONTRIBUTORS ARE NOT LIABLE FOR ANY
+CLAIMS, DAMAGES, OR OTHER LIABILITY ARISING FROM USE OF THE PROJECT.
+
+9. OTHER RIGHTS
+
+All rights not expressly granted are reserved. This License does not
+transfer copyright ownership, authorize use of excluded materials, or
+grant trademark rights. It does not change the terms of third-party
+open-source components included in or used by the Project.
