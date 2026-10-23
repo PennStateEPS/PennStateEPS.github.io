@@ -131,4 +131,4 @@ The website is maintained for the IEEE EPS Student Branch Chapter at Penn State.
 
 ## Developed By
 
-Md Rayid Hasan Mojumder, Founding Chair, IEEE EPS Student Branch Chapter at Penn State
+Md Rayid Hasan Mojumder (on Oct 23, 2026), Founding Chair, IEEE EPS Student Branch Chapter at Penn State
