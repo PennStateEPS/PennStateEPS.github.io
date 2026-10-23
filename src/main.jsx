@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, createContext, useContext } from 'react';
+import React, { useEffect, useMemo, useState, useRef, createContext, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
 import { storyblokInit, apiPlugin, useStoryblokBridge, storyblokEditable } from '@storyblok/react';
 import { organization as org, leadership, verifiedHighlights, confirmedPartners, faqs, links } from './content';
@@ -9,6 +9,8 @@ import './styles.css';
 // Until it is configured and the Home story is published, the existing homepage remains intact.
 const storyblokToken = (import.meta.env.VITE_STORYBLOK_PUBLIC_TOKEN || '').trim();
 const storyblokRegion = (import.meta.env.VITE_STORYBLOK_REGION || 'eu').trim().toLowerCase();
+// This site key is public. The private Turnstile secret stays only in Formspree.
+const turnstileSiteKey = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
 if (storyblokToken) {
   storyblokInit({
     accessToken: storyblokToken,
@@ -591,11 +593,154 @@ function ContactBlock({
 }
 
 function Footer(){const config=useConfig();const primary=(config.footerPrimary||DEFAULT_SITE_SETTINGS.footerPrimary).replaceAll('{year}',String(new Date().getFullYear()));return <footer className="footer"><div className="container footer-main"><Brand compact/><div className="footer-nav">{links.map(x=><a href={'#'+x.id} key={x.id}>{config.navLabels?.[x.id]||x.label}</a>)}</div><a className="footer-up" href="#home" aria-label="Back to top">↑</a></div><div className="container footer-bottom"><span>{primary}</span><span>{config.footerSecondary}</span></div></footer>}
-function Modal({kind,event,onClose}){const config=useConfig();const [status,setStatus]=useState({type:'',message:''}),[submitting,setSubmitting]=useState(false);useEffect(()=>{const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);document.body.classList.add('modal-open');return()=>{document.body.classList.remove('modal-open');window.removeEventListener('keydown',onKey)}},[onClose]);
- const names={contact:'Send us a message',sponsor:'Explore a partnership',join:'Join the community'};const desc={contact:'General inquiries, event suggestions, or questions about the chapter.',sponsor:'Tell us a little about the opportunity you have in mind.',join:'Express your interest in IEEE EPS Penn State activities.'};const ids={contact:import.meta.env.VITE_FORMSPREE_CONTACT_ID,sponsor:import.meta.env.VITE_FORMSPREE_SPONSOR_ID,join:import.meta.env.VITE_FORMSPREE_JOIN_ID};const id=ids[kind];
- async function submit(e){e.preventDefault();const form=e.currentTarget;if(!id){setStatus({type:'error',message:'This form is not connected yet. Please email the chapter directly.'});return}setSubmitting(true);setStatus({type:'',message:''});try{const response=await fetch(`https://formspree.io/f/${encodeURIComponent(id)}`,{method:'POST',body:new FormData(form),headers:{Accept:'application/json'}});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.errors?.map(e=>e.message).join(' ')||'Submission failed');form.reset();setStatus({type:'success',message:'Thanks! Your message has been submitted successfully.'})}catch(e){setStatus({type:'error',message:e.message||'Something went wrong. Please try again.'})}finally{setSubmitting(false)}}
+function Modal({kind,event,onClose}){
+ const config=useConfig();
+ const [status,setStatus]=useState({type:'',message:''});
+ const [submitting,setSubmitting]=useState(false);
+ const [captchaToken,setCaptchaToken]=useState('');
+ const [captchaError,setCaptchaError]=useState(false);
+ const captchaContainerRef=useRef(null);
+ const captchaWidgetIdRef=useRef(null);
+ const ids={contact:import.meta.env.VITE_FORMSPREE_CONTACT_ID,sponsor:import.meta.env.VITE_FORMSPREE_SPONSOR_ID,join:import.meta.env.VITE_FORMSPREE_JOIN_ID};
+ const id=ids[kind];
+ const names={contact:'Send us a message',sponsor:'Explore a partnership',join:'Join the community'};
+ const desc={contact:'General inquiries, event suggestions, or questions about the chapter.',sponsor:'Tell us a little about the opportunity you have in mind.',join:'Express your interest in IEEE EPS Penn State activities.'};
+
+ useEffect(()=>{
+  const onKey=e=>{if(e.key==='Escape')onClose()};
+  window.addEventListener('keydown',onKey);
+  document.body.classList.add('modal-open');
+  return()=>{document.body.classList.remove('modal-open');window.removeEventListener('keydown',onKey)};
+ },[onClose]);
+
+ // Turnstile is rendered explicitly so it works when a React modal opens after page load.
+ // Real bot prevention requires Formspree's server-side Turnstile verification to be enabled.
+ useEffect(()=>{
+  if(event || !id || !turnstileSiteKey)return;
+  let disposed=false;
+  const onScriptError=()=>{if(!disposed)setCaptchaError(true)};
+  const renderCaptcha=()=>{
+   if(disposed || !window.turnstile || !captchaContainerRef.current || captchaWidgetIdRef.current!==null)return;
+   try{
+    const widgetId=window.turnstile.render(captchaContainerRef.current,{
+     sitekey:turnstileSiteKey,
+     theme:'light',
+     appearance:'always',
+     'response-field':false,
+     callback:token=>{if(!disposed){setCaptchaToken(token);setCaptchaError(false)}},
+     'expired-callback':()=>{if(!disposed)setCaptchaToken('')},
+     'error-callback':()=>{if(!disposed){setCaptchaToken('');setCaptchaError(true)}}
+    });
+    if(widgetId === undefined)throw new Error('Turnstile widget could not be rendered.');
+    captchaWidgetIdRef.current=widgetId;
+   }catch(err){if(!disposed)setCaptchaError(true)}
+  };
+  let script=document.querySelector('script[data-eps-turnstile]');
+  if(!script){
+   script=document.createElement('script');
+   script.dataset.epsTurnstile='true';
+   script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+   script.async=true;
+   script.defer=true;
+   document.head.appendChild(script);
+  }
+  script.addEventListener('load',renderCaptcha);
+  script.addEventListener('error',onScriptError);
+  if(window.turnstile)renderCaptcha();
+  return()=>{
+   disposed=true;
+   script.removeEventListener('load',renderCaptcha);
+   script.removeEventListener('error',onScriptError);
+   if(captchaWidgetIdRef.current!==null && window.turnstile){
+    try{window.turnstile.remove(captchaWidgetIdRef.current)}catch(_err){}
+   }
+   captchaWidgetIdRef.current=null;
+  };
+ },[kind,id,event]);
+
+ async function submit(e){
+  e.preventDefault();
+  const form=e.currentTarget; // keep the node before the await; React currentTarget is transient
+  if(!id){setStatus({type:'error',message:'This form is not connected yet. Please email the chapter directly.'});return}
+  const data=new FormData(form);
+  const fullName=String(data.get('name')||'').trim();
+  const email=String(data.get('email')||'').trim();
+  const inquiryType=String(data.get('inquiry_type')||'').trim();
+  if(fullName.length<2 || !email || !inquiryType){
+   setStatus({type:'error',message:'Please enter your name, email address, and select an inquiry type.'});return;
+  }
+  data.set('name',fullName);
+  data.set('email',email);
+  if(turnstileSiteKey){
+   if(!captchaToken){setStatus({type:'error',message:'Please complete the security verification before submitting.'});return}
+   data.set('cf-turnstile-response',captchaToken);
+  }
+  setSubmitting(true);
+  setStatus({type:'',message:''});
+  try{
+   const response=await fetch(`https://formspree.io/f/${encodeURIComponent(id)}`,{
+    method:'POST',body:data,headers:{Accept:'application/json'}
+   });
+   const body=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(body.errors?.map(e=>e.message).join(' ')||'Your submission could not be sent. Please try again.');
+   form.reset();
+   setStatus({type:'success',message:'Thank you for your submission. We will reach out to you using the email address you provided.'});
+  }catch(error){
+   setStatus({type:'error',message:error.message||'Something went wrong. Please try again.'});
+   if(turnstileSiteKey && captchaWidgetIdRef.current!==null && window.turnstile){
+    try{window.turnstile.reset(captchaWidgetIdRef.current)}catch(_err){}
+    setCaptchaToken('');
+   }
+  }finally{setSubmitting(false)}
+ }
+
  if(event)return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label="Event details" onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button><span className="kicker"><span className="tiny-square"/>CHAPTER EVENT</span><h2>{event.summary||'Chapter event'}</h2><div className="event-detail-row"><Icon name="calendar"/> {displayEventDate(event)}</div>{event.location&&<div className="event-detail-row"><Icon name="pin"/> {event.location}</div>}{event.description&&<p className="modal-description">{event.description.replace(/<[^>]*>/g,'').slice(0,2500)}</p>}<div className="modal-actions">{event.htmlLink&&<a className="button" href={event.htmlLink} target="_blank" rel="noreferrer">Open calendar event <Icon name="external" size={16}/></a>}<button className="button button-soft" onClick={onClose}>Close</button></div></div></div>;
- return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label={names[kind]} onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button><span className="kicker"><span className="tiny-square"/>CONNECT WITH IEEE EPS</span><h2>{names[kind]}</h2><p className="modal-intro">{desc[kind]}</p>{status.type==='success'?<div className="status-message success"><Icon name="checkcircle"/> {status.message}</div>:<form className="chapter-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" autoComplete="name"/></label><label>Email address<input required name="email" type="email" placeholder="name@example.com" autoComplete="email"/></label>{kind==='sponsor'&&<><label>Organization<input required name="organization" placeholder="Company or institution"/></label><label>Inquiry type<select name="inquiry_type" defaultValue="Industry collaboration"><option>Industry collaboration</option><option>Event sponsorship</option><option>Technical talk / speaker</option><option>Workshop</option><option>Other</option></select></label></>}{kind==='join'&&<><label>Academic program<input name="academic_program" placeholder="e.g. PhD Electrical Engineering"/></label><label>Technical interests<input name="interests" placeholder="Packaging, photonics, reliability…"/></label></>}{kind==='contact'&&<label>Subject<input required name="subject" placeholder="How can we help?"/></label>}{kind!=='join'&&<label>Message<textarea required name="message" rows="4" placeholder="Share a few details…"/></label>}<input type="hidden" name="source" value="IEEE EPS Penn State website"/><button className="button submit-button" disabled={submitting} type="submit">{submitting?'Sending…':'Submit inquiry'} <Icon name="arrow" size={16}/></button>{kind==='join'&&<small>Expressing interest does not create or replace official IEEE membership.</small>}{!id&&<p className="form-setup-note">Online submissions are awaiting Formspree connection. For now, contact <a href={`mailto:${config.email}`}>{config.email}</a>.</p>}{status.type==='error'&&<div role="alert" className="status-message error">{status.message}</div>}</form>}</div></div>;
+ return <div className="modal-backdrop" onClick={onClose}><div className="dialog" role="dialog" aria-modal="true" aria-label={names[kind]} onClick={e=>e.stopPropagation()}>
+  <button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="close"/></button>
+  <span className="kicker"><span className="tiny-square"/>CONNECT WITH IEEE EPS</span>
+  <h2>{names[kind]}</h2><p className="modal-intro">{desc[kind]}</p>
+  {status.type==='success'
+    ? <div role="status" className="status-message success"><Icon name="checkcircle"/> {status.message}</div>
+    : <form className="chapter-form" onSubmit={submit}>
+      <label>Full name *<input required minLength={2} maxLength={120} name="name" placeholder="Your name" autoComplete="name"/></label>
+      <label>Email address *<input required maxLength={254} name="email" type="email" placeholder="name@example.com" autoComplete="email"/></label>
+      {kind==='sponsor'&&<label>Organization<input required name="organization" placeholder="Company or institution"/></label>}
+      <label>Inquiry type *
+       <select name="inquiry_type" defaultValue="" required>
+        <option value="" disabled>Select an inquiry type</option>
+        {kind==='sponsor'&&<>
+         <option>Industry collaboration</option><option>Event sponsorship</option><option>Technical talk / speaker</option><option>Workshop</option><option>Other</option>
+        </>}
+        {kind==='contact'&&<>
+         <option>General inquiry</option><option>Event suggestion</option><option>Membership question</option><option>Speaker invitation</option><option>Other</option>
+        </>}
+        {kind==='join'&&<>
+         <option>Attend chapter events</option><option>Volunteer with the chapter</option><option>Committee participation</option><option>Technical workshops</option><option>Other</option>
+        </>}
+       </select>
+      </label>
+      {kind==='join'&&<>
+       <label>Academic program<input name="academic_program" placeholder="e.g. PhD Electrical Engineering"/></label>
+       <label>Technical interests<input name="interests" placeholder="Packaging, photonics, reliability…"/></label>
+      </>}
+      {kind==='contact'&&<label>Subject<input required name="subject" placeholder="How can we help?"/></label>}
+      {kind!=='join'&&<label>Message<textarea required name="message" rows="4" placeholder="Share a few details…"/></label>}
+      <input type="hidden" name="source" value="IEEE EPS Penn State website"/>
+      {/* Formspree's supported _gotcha honeypot adds another automatic spam signal. */}
+      <div aria-hidden="true" style={{position:'absolute',left:'-9999px',height:1,width:1,overflow:'hidden'}}><label>Leave this blank<input type="text" name="_gotcha" autoComplete="off" tabIndex={-1}/></label></div>
+      {Boolean(turnstileSiteKey)&&<div className="captcha-area" aria-label="Security verification" style={{maxWidth:'100%',minHeight:65}}>
+        <div ref={captchaContainerRef}/>
+        {captchaError&&<p className="form-setup-note" role="alert">Security verification could not load. Please refresh and try again.</p>}
+        <small>Protected by Cloudflare Turnstile.</small>
+      </div>}
+      <button className="button submit-button" disabled={submitting || (Boolean(turnstileSiteKey) && !captchaToken)} type="submit">
+       {submitting?'Sending…':'Submit inquiry'} <Icon name="arrow" size={16}/>
+      </button>
+      {kind==='join'&&<small>Expressing interest does not create or replace official IEEE membership.</small>}
+      {!id&&<p className="form-setup-note">Online submissions are awaiting Formspree connection. For now, contact <a href={`mailto:${config.email}`}>{config.email}</a>.</p>}
+      {status.type==='error'&&<div role="alert" className="status-message error">{status.message}</div>}
+    </form>}
+ </div></div>;
 }
 // The rest of the site remains the original working design, independently of Storyblok.
 function FallbackHome({onSettingsChange}) { return <HomepageSections onSettingsChange={onSettingsChange}/>; }
