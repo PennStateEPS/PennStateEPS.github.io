@@ -31,6 +31,7 @@ jobs:
       VITE_FORMSPREE_CONTACT_ID: ${{ vars.VITE_FORMSPREE_CONTACT_ID }}
       VITE_FORMSPREE_SPONSOR_ID: ${{ vars.VITE_FORMSPREE_SPONSOR_ID }}
       VITE_FORMSPREE_JOIN_ID: ${{ vars.VITE_FORMSPREE_JOIN_ID }}
+      VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
